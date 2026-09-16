@@ -27,12 +27,19 @@ on benign tool output, and task utility under each defense.
 
 ## Status
 
-**Phase 0 complete** — harness, scoring, budget, cache, traces, 59 tests green. 949 AgentDojo security cases enumerated; 150-case stratified subset drawn.
-Phase 1 (English baseline) needs an API key.
+**Phase 0 built and verified offline — 77 tests green.** Agent loop, scoring,
+budget, cache, traces; 949 AgentDojo security cases enumerated, 150-case
+stratified subset drawn. The one remaining exit step is a live model call:
+
+```bash
+ant auth login                      # or: cp .env.example .env
+python -m scripts.phase0_smoke      # ~$0.005
+python -m scripts.phase0_smoke --fake   # no key, no spend: verifies the wiring
+```
 
 | Phase | State |
 |---|---|
-| 0 — Foundations | done |
+| 0 — Foundations | built + verified offline; live run needs credentials |
 | 1 — English baseline | case extraction + stratified subset done; baseline run blocked on `ANTHROPIC_API_KEY` |
 | 2 — Capability ceiling (**go/no-go**) | not started |
 | 3 — Localization | not started |
@@ -100,7 +107,9 @@ pins that behaviour.
 | `harness/cache.py` | Content-addressed response cache |
 | `harness/trace.py` | Append-only JSONL; every paper number regenerates from these |
 | `corpus/extract.py` | AgentDojo -> InjectionCase, stratified sampler |
-| `tests/` | 59 tests, scoring first |
+| `harness/runner.py` | The agent loop; defense hook at the tool-output boundary |
+| `scripts/phase0_smoke.py` | Phase 0 exit check, `--fake` runs it without a key |
+| `tests/` | 77 tests, scoring first |
 
 ---
 

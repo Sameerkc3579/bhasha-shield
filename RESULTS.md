@@ -95,4 +95,69 @@ hand-authoring of attacker goals for the upstream cases.
 
 ---
 
+## 2026-09-16 — Phase 0: the agent loop
+
+**Done.**
+
+- `harness/runner.py` — the agent loop, with the `Defense` hook sitting exactly
+  where it has to: between tool execution and the tool result reaching the
+  model. Plus `AgentDojoRunner` (which also satisfies the Phase 2 capability
+  probe's `AgentRunner` protocol, so probe and grid share one execution path)
+  and `AnthropicClient` (cached, budgeted).
+- `scripts/phase0_smoke.py` — the exit-criterion script, with a `--fake` mode
+  that replays the attacker's own ground-truth calls through the real loop, real
+  environment and real scorers. No key, no spend.
+- **77 tests green**, up from 59.
+
+**Decision: we do not use AgentDojo's agent pipeline.** Its pinned model
+registry stops at Claude 3.7 Sonnet and has no entry for the models this project
+runs on. Patching their enum would put us back here at the next model change.
+We take their environments, tools (`FunctionsRuntime.run_function`) and their
+`utility()` / `security()` scorers, and own the loop. Needed anyway: a defense
+must inspect tool output before the model sees it, and that boundary is inside
+the loop.
+
+**Verified end to end, offline.** `--fake` run on
+`banking__user_task_0__injection_task_7`: the loop executed `update_password`,
+and AgentDojo's own `security()` scorer confirmed the attack succeeded, while
+`utility()` correctly reported the user's task was not done. Trace written, 8
+events. So the loop, runtime, environment mutation and scoring wiring are all
+connected.
+
+**Two bugs found and fixed.**
+
+1. *Sampling parameters do not exist any more.* The installed SDK (`anthropic`
+   1.6.0) has removed `temperature` from `messages.create()` outright — passing
+   it raises `TypeError` before a request is made. The obvious
+   "set temperature=0 for determinism" instinct is now a crash.
+   **Consequence: runs cannot be made bit-deterministic.** Two things carry that
+   weight instead — the response cache (makes re-analysis exactly reproducible)
+   and the 5% re-run variance measurement in Phase 5, which stops being
+   optional. Report the variance in the paper; most work in this area does not.
+2. *The smoke script printed success over a failed run.* It reported
+   "PHASE 0 EXIT: ..." and returned 0 even when the run errored. Caught on the
+   first live attempt. Now exits 1 and says the criterion was not met. This is
+   the class of bug that lets a broken grid look fine for a week.
+
+**Numbers.**
+
+| Quantity | Value |
+|---|---|
+| Tests passing | 77 / 77 |
+| Offline smoke run (`--fake`) | exit 0, attack detected by `security()`, 8 trace events |
+| Live smoke run | exit 1 — no credentials |
+| Spend to date | **$0.00** |
+
+**Phase 0 exit criterion: not yet met.** Everything except the live model call
+is built and verified. The remaining step needs credentials:
+
+```
+ant auth login          # or: cp .env.example .env, fill in ANTHROPIC_API_KEY
+python -m scripts.phase0_smoke
+```
+
+Expected cost of that run: under a cent.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
