@@ -10,6 +10,7 @@ a real and common way to lose a month of work.
 from __future__ import annotations
 
 import json
+import re
 import os
 import subprocess
 from datetime import datetime, timezone
@@ -34,6 +35,16 @@ def _git_sha() -> str:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _slug(value: str) -> str:
+    """Make a string safe as a filename component.
+
+    Open-weight model ids carry a namespace -- `Qwen/Qwen2.5-7B-Instruct` -- and
+    the slash silently turns into a directory that does not exist. The model name
+    is part of the trace identity, so it has to survive, just flattened.
+    """
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-") or "unknown"
 
 
 class TraceEvent(BaseModel):
@@ -69,7 +80,7 @@ class RunTrace:
         self.model = model
         self.root = Path(root) / phase
         self.root.mkdir(parents=True, exist_ok=True)
-        self.path = self.root / f"{lang}__{defense}__{model}.jsonl"
+        self.path = self.root / f"{_slug(lang)}__{_slug(defense)}__{_slug(model)}.jsonl"
         self._fh = None
 
     def __enter__(self) -> "RunTrace":

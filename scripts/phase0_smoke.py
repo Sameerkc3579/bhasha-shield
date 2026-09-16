@@ -59,7 +59,14 @@ class GroundTruthClient:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--fake", action="store_true", help="no API key, no spend")
+    ap.add_argument("--fake", action="store_true", help="no model at all; replays ground truth")
+    ap.add_argument(
+        "--backend",
+        choices=("local", "anthropic"),
+        default="local",
+        help="local = open-weight model served by vLLM (default, free)",
+    )
+    ap.add_argument("--base-url", default=None, help="vLLM endpoint for --backend local")
     ap.add_argument("--index", type=int, default=0)
     ap.add_argument("--model", default=None)
     ap.add_argument("--cap", type=float, default=1.00, help="phase budget cap in USD")
@@ -94,6 +101,25 @@ def main() -> int:
     if args.fake:
         client = GroundTruthClient(injection_task.ground_truth(env))
         model_name = client.model
+    elif args.backend == "local":
+        try:
+            from harness.local_client import (
+                DEFAULT_BASE_URL,
+                DEFAULT_LOCAL_MODEL,
+                OpenAICompatClient,
+            )
+
+            client = OpenAICompatClient(
+                args.model or DEFAULT_LOCAL_MODEL,
+                base_url=args.base_url or DEFAULT_BASE_URL,
+                cache=cache,
+            )
+            model_name = client.model
+        except Exception as e:
+            print(f"could not build a local client: {type(e).__name__}: {e}")
+            print("\nStart the vLLM server first -- see docs/KAGGLE.md.")
+            print("  python -m scripts.phase0_smoke --fake   # verifies wiring meanwhile")
+            return 2
     else:
         try:
             from harness.budget import PRIMARY_MODEL
@@ -158,7 +184,15 @@ def main() -> int:
         print(f"\nFAILED: run errored -- {result.error}")
         # The SDK resolves credentials lazily, so a missing key surfaces here at
         # call time rather than at construction. Say what to do about it.
-        if "authentication" in result.error.lower() or "api_key" in result.error.lower():
+        low = result.error.lower()
+        if "connection" in low or "connect" in low or "refused" in low:
+            print("\nNo model server reachable. Start vLLM first -- see docs/KAGGLE.md:")
+            print("  python -m vllm.entrypoints.openai.api_server \\")
+            print("    --model Qwen/Qwen2.5-7B-Instruct --enable-auto-tool-choice \\")
+            print("    --tool-call-parser hermes --port 8000")
+            print("\nTo verify the wiring with no model at all:")
+            print("  python -m scripts.phase0_smoke --fake")
+        elif "authentication" in low or "api_key" in low:
             print("\nNo credentials. Set them with either:")
             print("  ant auth login                     (SDK reads the profile automatically)")
             print("  cp .env.example .env               (then fill in ANTHROPIC_API_KEY)")

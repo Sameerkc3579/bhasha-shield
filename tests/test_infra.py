@@ -162,3 +162,26 @@ def test_trace_cells_are_separate_files(tmp_path):
     a = RunTrace(phase="p", lang="hi", defense="d", model="m", root=tmp_path)
     b = RunTrace(phase="p", lang="bn", defense="d", model="m", root=tmp_path)
     assert a.path != b.path  # a crashed cell loses only itself
+
+
+def test_trace_filename_survives_a_namespaced_model_id(tmp_path):
+    """Open-weight ids carry a namespace: Qwen/Qwen2.5-7B-Instruct.
+
+    The slash used to turn into a directory that did not exist, so the very
+    first local run crashed on opening its own trace file.
+    """
+    t = RunTrace(
+        phase="p", lang="hi", defense="promptguard/v2",
+        model="Qwen/Qwen2.5-7B-Instruct", root=tmp_path,
+    )
+    assert "/" not in t.path.name
+    with t:
+        t.write("note", run_id="r", payload={"ok": True})
+    assert t.path.exists()
+    assert "Qwen-Qwen2.5-7B-Instruct" in t.path.name
+
+
+def test_trace_slug_keeps_distinct_models_distinct(tmp_path):
+    a = RunTrace(phase="p", lang="en", defense="d", model="org/model-a", root=tmp_path)
+    b = RunTrace(phase="p", lang="en", defense="d", model="org/model-b", root=tmp_path)
+    assert a.path != b.path

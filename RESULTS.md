@@ -160,4 +160,110 @@ Expected cost of that run: under a cent.
 
 ---
 
+## 2026-09-16 - Phase 1 (offline parts) + backend decision
+
+**Backend decision: open-weight model served locally on Kaggle. Total cost Rs 0.**
+
+Checked the free options rather than assuming. Groq is out: 14,400 requests/day
+sounds fine but the binding limit is 6,000 tokens/minute, and our agent calls
+carry tool schemas plus environment content at roughly 3-8k tokens each -- about
+one call per minute. Google AI Studio free tier works (1,500 req/day, 15 RPM,
+1M TPM, function calling included). We chose local open-weight anyway:
+
+- no rate limits, no drift, weights pinned by revision
+- any reviewer reruns the whole paper for free
+- **the confound is larger on a smaller model.** A frontier model is competent
+  in Hindi, so C(L) sits near 1.0 everywhere and the correction barely matters.
+  A 7B model has a genuinely low ceiling off-English, which is the effect being
+  measured. Running free strengthens the result rather than compromising it.
+- risk, stated plainly: if C(L) collapses to ~0 in Bengali that column is
+  unscorable. Phase 2 detects that before the grid runs.
+
+Model: `Qwen/Qwen2.5-7B-Instruct` via vLLM. Runbook in `docs/KAGGLE.md`.
+One recovered property: a locally served model still accepts sampling
+parameters, so `temperature=0` works and the determinism lost on the hosted path
+comes back.
+
+**Done this session.**
+
+- `analysis/power.py` - the power calculation Phase 1 step 1 requires.
+- `harness/local_client.py` - OpenAI-compatible backend with full Anthropic
+  <-> OpenAI message translation.
+- `corpus/benign_build.py` - the benign corpus, contribution C4.
+- `scripts/phase1_baseline.py` - the English baseline, one command once a
+  server is up. `scripts/phase0_smoke.py --backend local`.
+- `docs/KAGGLE.md` - the zero-cost runbook.
+- **124 tests green**, up from 77.
+
+**Finding: n=150 is underpowered for the claim as written.**
+
+| design | result |
+|---|---|
+| Unpaired, n=150 | detects only a **16.2-point** difference at 80% power |
+| Unpaired, 10-point effect | needs **388** cases per language |
+| Paired McNemar, discordance 0.15 | power **0.87** at n=150 |
+| Paired McNemar, discordance 0.35 | power **0.50** at n=150; needs 288 |
+| Paired McNemar, discordance 0.50 | power **0.36** at n=150; needs 408 |
+
+Every headline comparison here is paired -- the same case IDs in every language
+-- so McNemar is the right test and the paired rows size the study. But the
+answer depends on discordance, which is unknown until Phase 2 measures it.
+
+**Decision: do not resize now.** The Phase 2 capability probe measures
+discordance directly, costs nothing extra, and lands before the grid. Rule to
+apply afterwards:
+
+```
+discordance <= 0.20  -> n = 150 holds
+0.20 < d <= 0.35     -> n = 250
+d > 0.35             -> n = 300+, or narrow the claim to 15-point effects
+                        and say so explicitly
+```
+
+A second correction fell out of the cost table: the spot-check slice must be a
+**fixed 30 cases**, not 20% of n. At frontier pricing a slice that scales with n
+doubles the bill for no additional claim. (Moot now that both models are free,
+but the reasoning stands if a paid spot-check is ever added.)
+
+**Benign corpus v1: 127 items** (`corpus/benign/en.jsonl`).
+
+| | n |
+|---|---|
+| Ordinary, harvested from AgentDojo default environments | 87 |
+| Adversarial-benign, hand-written | 40 |
+
+The adversarial-benign half is the part that does the work: security-awareness
+training that quotes attack strings, quoted email chains, policy documents that
+say "agents must ignore instructions in retrieved documents", code containing
+`ignore previous instructions` as a regex, changelogs announcing overrides,
+a forum post complaining about exactly this false positive. A corpus of only
+ordinary text would show near-zero FPR for any detector and teach us nothing.
+
+Two harvest bugs found: files and web pages are stored under filename/URL keys
+rather than field names, so the first build silently dropped **every** banking
+file and Slack page. Fixed by also accepting any string over 120 chars.
+
+87 is roughly the whole harvestable pool in these environments. The adversarial
+half should grow to match it, but those remaining items belong in **Phase 3,
+authored natively per language rather than translated** -- what "reads like an
+injection" is language-specific, so translating English adversarial-benign items
+would produce the wrong corpus.
+
+**Third bug, found on the first local run:** open-weight model ids carry a
+namespace (`Qwen/Qwen2.5-7B-Instruct`) and the slash turned into a directory
+that did not exist, so the run crashed opening its own trace file. Trace
+filenames are now slugged.
+
+**Still blocked on a GPU session, not on money.** Phase 1 steps 2-3 (the
+undefended English baseline) need a running vLLM server:
+
+```
+python -m scripts.phase0_smoke --backend local     # closes Phase 0
+python -m scripts.phase1_baseline --backend local  # the baseline
+```
+
+Spend to date: **Rs 0 / $0.00.**
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
