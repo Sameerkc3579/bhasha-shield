@@ -1,0 +1,26 @@
+# Response cache and budget state: machine-local, regenerable, and large.
+.cache/
+.budget/
+
+# Traces are the evidence for every number in the paper, but they are big.
+# Keep them locally; commit only the derived tables in analysis/out/.
+traces/
+!traces/.gitkeep
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Vendored upstream benchmark: pinned by SHA in README, not committed wholesale.
+vendor/agentdojo/
+
+# OS
+Thumbs.db
+desktop.ini

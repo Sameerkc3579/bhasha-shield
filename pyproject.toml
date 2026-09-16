@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentfw"
+version = "0.0.1"
+description = "Utility-normalized cross-lingual evaluation of prompt-injection defenses for tool-using agents"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+classifiers-local = ["torch", "transformers", "sentencepiece", "protobuf"]
+analysis = ["matplotlib", "numpy", "pandas"]
+
+[tool.setuptools]
+packages = ["corpus", "defenses", "harness", "analysis", "service"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
