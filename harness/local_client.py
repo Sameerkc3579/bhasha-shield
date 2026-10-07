@@ -24,6 +24,7 @@ Translation to the OpenAI wire format lives here, so backends stay swappable.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from harness.budget import Usage
@@ -135,6 +136,26 @@ def _parse_arguments(raw: Any) -> dict[str, Any]:
         return {}
 
 
+MIN_COMPLETION_TOKENS = 256
+
+_CONTEXT_ERROR = re.compile(
+    r"maximum context length is (\d+) tokens.*?\((\d+) in the messages", re.DOTALL
+)
+
+
+def _completion_room(error: Exception) -> int | None:
+    """Tokens left for the reply, parsed from vLLM's context-overflow error.
+
+    None if the error is anything else. The first 14B baseline lost 3 runs to
+    this at max_model_len=12288 with prompts of 11.4k-12.1k tokens.
+    """
+    m = _CONTEXT_ERROR.search(str(error))
+    if not m:
+        return None
+    limit, used = int(m.group(1)), int(m.group(2))
+    return limit - used
+
+
 # --------------------------------------------------------------------------
 # Client
 # --------------------------------------------------------------------------
@@ -187,14 +208,30 @@ class OpenAICompatClient:
             if hit is not None:
                 return ModelResponse.model_validate(hit)
 
-        raw = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages_to_openai(system, messages),
-            tools=tools_to_openai(tools),
-            tool_choice="auto",
-            max_tokens=self.max_tokens,
-            temperature=self.temperature,
-        )
+        def create(max_tokens: int):
+            # Tool-less calls (the Class C planner) omit both fields: an empty
+            # `tools` list with tool_choice="auto" is rejected by some servers.
+            tool_kwargs: dict[str, Any] = (
+                {"tools": tools_to_openai(tools), "tool_choice": "auto"} if tools else {}
+            )
+            return self.client.chat.completions.create(
+                model=self.model,
+                messages=messages_to_openai(system, messages),
+                max_tokens=max_tokens,
+                temperature=self.temperature,
+                **tool_kwargs,
+            )
+
+        try:
+            raw = create(self.max_tokens)
+        except Exception as e:
+            # vLLM rejects prompt + max_tokens > max_model_len outright, even when
+            # the reply would have been short. Retry once with whatever room is
+            # actually left; give up only when that room is too small to be useful.
+            room = _completion_room(e)
+            if room is None or room < MIN_COMPLETION_TOKENS:
+                raise
+            raw = create(room)
 
         choice = raw.choices[0]
         msg = choice.message

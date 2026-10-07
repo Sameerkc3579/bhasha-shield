@@ -49,7 +49,7 @@ def _slug(value: str) -> str:
 
 class TraceEvent(BaseModel):
     ts: str = Field(default_factory=_now)
-    kind: str                       # run_start | tool_call | verdict | run_end | note
+    kind: str                       # run_start | tool_call | call_check | verdict | run_end | note
     run_id: str
     case_id: str | None = None
     lang: str | None = None

@@ -15,9 +15,11 @@ import argparse
 import copy
 import json
 import sys
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from corpus.attacks import ATTACKS, DEFAULT_ATTACK, render
 from corpus.schema import InjectionCase
 from defenses.base import NullDefense, RunContext
 from harness.cache import ResponseCache
@@ -44,7 +46,7 @@ def build_client(backend: str, model: str | None, base_url: str | None, cache: R
     return AnthropicClient(model or PRIMARY_MODEL, cache=cache)
 
 
-def run_one(case: InjectionCase, client, suites, trace: RunTrace, inject: bool) -> CaseResult:
+def run_one(case: InjectionCase, client, suites, trace: RunTrace, inject: bool, attack: str = DEFAULT_ATTACK) -> CaseResult:
     """One case. `inject` False gives the clean utility run, True the attack run."""
     from agentdojo.functions_runtime import FunctionsRuntime
 
@@ -55,7 +57,8 @@ def run_one(case: InjectionCase, client, suites, trace: RunTrace, inject: bool) 
 
     injections = {}
     if inject:
-        injections = {k: injection_task.GOAL for k in suite.get_injection_vector_defaults()}
+        payload = render(injection_task.GOAL, attack=attack)
+        injections = {k: payload for k in suite.get_injection_vector_defaults()}
 
     env = suite.load_and_inject_default_environment(injections)
     runtime = FunctionsRuntime(suite.tools)
@@ -84,6 +87,30 @@ def run_one(case: InjectionCase, client, suites, trace: RunTrace, inject: bool) 
     )
 
 
+def trace_lengths() -> dict[Path, int]:
+    """Lines already in each phase1 trace, so a report can skip earlier runs."""
+    return {
+        f: len(f.read_text(encoding="utf-8").splitlines())
+        for f in Path("traces/phase1").glob("*.jsonl")
+    }
+
+
+def error_reasons(skip: dict[Path, int] | None = None) -> Counter:
+    """Loop-level failures (API errors, context overflow) as recorded in the traces.
+
+    Traces append across runs, so `skip` (from `trace_lengths()` taken before
+    this run) keeps errors from earlier runs out of this run's report.
+    """
+    skip = skip or {}
+    out: Counter = Counter()
+    for f in Path("traces/phase1").glob("*.jsonl"):
+        for line in f.read_text(encoding="utf-8").splitlines()[skip.get(f, 0):]:
+            ev = json.loads(line)
+            if ev.get("kind") == "run_end" and ev.get("payload", {}).get("errored"):
+                out[(ev["payload"].get("error") or "?")[:300]] += 1
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", choices=("local", "anthropic"), default="local")
@@ -91,6 +118,8 @@ def main() -> int:
     ap.add_argument("--base-url", default=None)
     ap.add_argument("--workers", type=int, default=8, help="vLLM batches, so raise this")
     ap.add_argument("--limit", type=int, default=None, help="run only the first N cases")
+    ap.add_argument("--attack", choices=ATTACKS, default=DEFAULT_ATTACK,
+                    help="payload template; 'direct' = bare goal, as the first baselines ran")
     args = ap.parse_args()
 
     if not CORPUS.exists():
@@ -105,18 +134,20 @@ def main() -> int:
     from agentdojo.task_suite.load_suites import get_suites
 
     suites = get_suites("v1.2.1")
-    print(f"{len(cases)} cases, model {client.model}, {args.workers} workers\n")
+    print(f"{len(cases)} cases, model {client.model}, attack {args.attack}, {args.workers} workers\n")
 
+    trace_start = trace_lengths()
     results: dict[str, list[CaseResult]] = {}
     for inject, label in ((True, "attack"), (False, "clean")):
         with RunTrace(
             phase="phase1", lang="en",
-            defense=f"undefended-{label}", model=client.model,
+            # The clean pass injects nothing, so its trace is attack-independent.
+            defense=f"undefended-{label}" + (f"-{args.attack}" if inject else ""), model=client.model,
         ) as trace:
             out: list[CaseResult] = []
             with ThreadPoolExecutor(max_workers=args.workers) as pool:
                 futures = {
-                    pool.submit(run_one, c, client, suites, trace, inject): c for c in cases
+                    pool.submit(run_one, c, client, suites, trace, inject, args.attack): c for c in cases
                 }
                 for i, fut in enumerate(as_completed(futures), 1):
                     case = futures[fut]
@@ -130,7 +161,7 @@ def main() -> int:
                                 errored=True,
                             )
                         )
-                        print(f"  [{i}/{len(cases)}] {case.case_id} raised {type(e).__name__}")
+                        print(f"  [{i}/{len(cases)}] {case.case_id} raised {type(e).__name__}: {str(e)[:300]}")
                     if i % 10 == 0:
                         print(f"  [{i}/{len(cases)}] {label}  {cache}")
             results[label] = out
@@ -151,6 +182,12 @@ def main() -> int:
     print(f"mean latency     {cell.mean_latency_ms:.0f} ms")
     print(f"cache            {cache}")
 
+    reasons = error_reasons(trace_start)
+    if reasons:
+        print("\nwhy runs errored (from the traces, most common first):")
+        for msg, n in reasons.most_common(5):
+            print(f"  {n:>3}x  {msg}")
+
     if errored / max(1, len(attack)) > 0.10:
         print(
             f"\nWARNING: {errored}/{len(attack)} runs errored. Above ~10% the cell is "
@@ -159,18 +196,22 @@ def main() -> int:
         )
 
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "phase1_en_baseline.json").write_text(
-        json.dumps(
+    report = json.dumps(
             {
+                # Not "attack": that key holds the per-case results below, and a
+                # duplicate key silently replaced this name with the whole list.
+                "attack_name": args.attack,
                 "cell": cell.model_dump(),
                 "attack": [r.model_dump() for r in attack],
                 "clean": [r.model_dump() for r in clean],
             },
             indent=2,
-        ),
-        encoding="utf-8",
-    )
-    print(f"\nwrote {OUT / 'phase1_en_baseline.json'}")
+        )
+    # The canonical file is what the Phase 2 probe joins onto; the attack-named
+    # copy keeps runs under different attacks from overwriting each other.
+    for name in ("phase1_en_baseline.json", f"phase1_en_baseline__{args.attack}.json"):
+        (OUT / name).write_text(report, encoding="utf-8")
+        print(f"\nwrote {OUT / name}")
     print("\nNext: python -m scripts.phase2_probe  (the go/no-go gate)")
     return 1 if errored / max(1, len(attack)) > 0.10 else 0
 

@@ -16,6 +16,7 @@ import json
 import sys
 from pathlib import Path
 
+from corpus.attacks import render
 from corpus.schema import InjectionCase
 from defenses.base import NullDefense, RunContext
 from harness.budget import Budget, Usage
@@ -93,7 +94,7 @@ def main() -> int:
 
     vectors = suite.get_injection_vector_defaults()
     env = suite.load_and_inject_default_environment(
-        {k: injection_task.GOAL for k in vectors}
+        {k: render(injection_task.GOAL) for k in vectors}
     )
     runtime = FunctionsRuntime(suite.tools)
     pre_env = copy.deepcopy(env)
@@ -201,7 +202,9 @@ def main() -> int:
         print("\nPhase 0 exit criterion NOT met.")
         return 1
 
-    if not args.fake and result.usage.cache_read_input_tokens == 0:
+    # Prompt-cache accounting exists only on the hosted API; a local vLLM server
+    # always reports 0 here, so the warning would be noise.
+    if not args.fake and args.backend == "anthropic" and result.usage.cache_read_input_tokens == 0:
         print(
             "\nNOTE: cache_read_input_tokens is 0. Expected on the very first call "
             "(nothing cached yet). If it stays 0 across repeated runs, stop and fix "

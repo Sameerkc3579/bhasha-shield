@@ -137,6 +137,23 @@ def test_cache_survives_unicode_payloads(tmp_path):
     assert c.get(k) == {"text": "উত্তর"}
 
 
+def test_concurrent_writes_of_the_same_key_do_not_crash(tmp_path):
+    """Regression: the first Colab pre-flight lost 3/10 runs to FileNotFoundError.
+
+    Workers issue identical requests (cases sharing a user task share their
+    first turn), and a shared `{key}.tmp` let one writer's rename steal the
+    other's file.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    c = ResponseCache(tmp_path)
+    k = request_key(model="m", payload={"q": "same request"})
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        list(pool.map(lambda i: c.put(k, {"text": "same"}), range(200)))
+    assert c.get(k) == {"text": "same"}
+    assert not list(tmp_path.rglob("*.tmp")), "temp files leaked"
+
+
 # ------------------------------------------------------------------- trace
 
 
