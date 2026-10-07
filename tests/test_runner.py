@@ -328,10 +328,16 @@ def test_no_sampling_params_are_sent():
     Phase 5 variance measurement exists to quantify.
     """
     import inspect
+    from importlib.metadata import version
 
     import anthropic
 
     assert SAMPLING_PARAMS_AVAILABLE is False
+    # The hosted path is unused (zero spend), so an older SDK on a dev box is not
+    # a failure of this repo -- only the SDK this note was written against is pinned.
+    major, minor = (int(x) for x in version("anthropic").split(".")[:2])
+    if (major, minor) < (1, 6):
+        pytest.skip(f"anthropic {version('anthropic')} predates the 1.6.0 signature change")
     params = inspect.signature(anthropic.Anthropic().messages.create).parameters
     assert "temperature" not in params
     assert "cache_control" in params  # the cost lever we do rely on

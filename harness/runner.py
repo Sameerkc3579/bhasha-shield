@@ -20,6 +20,7 @@ scripted fake -- no key, no spend, no flakiness.
 from __future__ import annotations
 
 import copy
+import sys
 import time
 from typing import Any, Protocol, Sequence
 
@@ -134,8 +135,14 @@ class AgentLoop:
         self.client = client
         self.runtime = runtime
         self.env = env
-        self.defense = defense or NullDefense()
+        if not ctx.available_tools:
+            ctx = ctx.model_copy(update={"available_tools": sorted(runtime.functions)})
         self.ctx = ctx
+        defense = defense or NullDefense()
+        # A stateful defense hands back a per-run copy: one defense object is
+        # shared by every worker thread, so state on it would leak across runs.
+        bind = getattr(defense, "bind", None)
+        self.defense = bind(ctx) if bind else defense
         self.system = system
         self.max_steps = max_steps
         self.trace = trace
@@ -166,11 +173,37 @@ class AgentLoop:
             return verdict.rewritten_content, verdict
         return content, verdict
 
+    def _check_call(self, tc: ToolCall, index: int) -> Verdict | None:
+        """Ask the defense whether a tool call may run. None if it has no call hook.
+
+        A refused call does not execute; the model gets an error result saying so,
+        the same way a blocked tool output becomes a notice rather than vanishing.
+        """
+        check = getattr(self.defense, "check_call", None)
+        if check is None:
+            return None
+        ctx = self.ctx.model_copy(update={"tool_call_index": index})
+        verdict = check(tc.name, dict(tc.args), ctx)
+        if self.trace and (verdict.block or verdict.reason):
+            self.trace.write(
+                "call_check",
+                run_id=self.ctx.case_id,
+                case_id=self.ctx.case_id,
+                payload={"tool": tc.name, "args": tc.args, "blocked": verdict.block,
+                         "reason": verdict.reason[:200]},
+            )
+        return verdict
+
     def run(self, task: str) -> LoopResult:
         started = time.perf_counter()
         result = LoopResult()
         messages: list[dict[str, Any]] = [{"role": "user", "content": task}]
         tools = tool_schemas(self.runtime.functions)
+        extra_tools = getattr(self.defense, "extra_tools", None)
+        if extra_tools:
+            tools = tools + extra_tools()
+        system_hook = getattr(self.defense, "system_prompt", None)
+        system = system_hook(self.system, self.ctx) if system_hook else self.system
 
         if self.trace:
             self.trace.write(
@@ -183,7 +216,7 @@ class AgentLoop:
         try:
             for step in range(self.max_steps):
                 result.steps = step + 1
-                resp = self.client.complete(system=self.system, messages=messages, tools=tools)
+                resp = self.client.complete(system=system, messages=messages, tools=tools)
                 _accumulate(result.usage, resp.usage)
 
                 if resp.text:
@@ -206,7 +239,25 @@ class AgentLoop:
                 tool_results: list[dict[str, Any]] = []
                 for i, tc in enumerate(resp.tool_calls):
                     result.tool_calls.append(tc)
+                    call_verdict = self._check_call(tc, i)
+                    if call_verdict is not None:
+                        # A planner's tokens are the defense's cost even when it allows.
+                        _accumulate(result.usage, Usage(input_tokens=call_verdict.extra_tokens))
+                    if call_verdict is not None and call_verdict.block:
+                        result.blocked += 1
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tc.id,
+                                "content": f"[blocked by {self.defense.name}: call to {tc.name} refused]",
+                                "is_error": True,
+                            }
+                        )
+                        continue
                     raw, err = self.runtime.run_function(self.env, tc.name, tc.args)
+                    self.ctx = self.ctx.model_copy(
+                        update={"prior_tool_names": [*self.ctx.prior_tool_names, tc.name]}
+                    )
                     content = err if err else _stringify(raw)
                     shown, verdict = self._inspect(tc.name, content, i)
                     if verdict.block:
@@ -312,8 +363,9 @@ def score_case(
             if user_task.utility_from_traces(result.final_text, pre_env, post_env, traces) is not None
             else user_task.utility(result.final_text, pre_env, post_env)
         )
-    except Exception:
+    except Exception as e:
         errored = True
+        print(f"  {case_id}: utility checker raised {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)
 
     if injection_task is not None:
         try:
@@ -325,8 +377,9 @@ def score_case(
                 if from_traces is not None
                 else injection_task.security(result.final_text, pre_env, post_env)
             )
-        except Exception:
+        except Exception as e:
             errored = True
+            print(f"  {case_id}: security checker raised {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)
 
     return CaseResult(
         case_id=case_id,
@@ -363,20 +416,31 @@ class AgentDojoRunner:
         defense: Defense | None = None,
         trace: RunTrace | None = None,
         max_steps: int = MAX_STEPS,
+        localized_env: bool = False,
     ):
         from agentdojo.task_suite.load_suites import get_suites
 
+        # C3: run each case in its language's localized environment
+        # (corpus/environments.py). Off by default, so every earlier run and
+        # cache entry is unchanged.
+        self.localized_env = localized_env
         self.client = client
         self.suites = get_suites(benchmark_version)
         self.defense = defense or NullDefense()
         self.trace = trace
         self.max_steps = max_steps
 
-    def _prepare(self, suite_name: str, injections: dict[str, str] | None = None):
+    def _prepare(self, suite_name: str, injections: dict[str, str] | None = None,
+                 lang: Lang | None = None):
         from agentdojo.functions_runtime import FunctionsRuntime
 
         suite = self.suites[suite_name]
-        env = suite.load_and_inject_default_environment(injections or {})
+        if self.localized_env and lang and lang != "en":
+            from corpus.environments import load_environment
+
+            env = load_environment(suite, injections or {}, lang)
+        else:
+            env = suite.load_and_inject_default_environment(injections or {})
         runtime = FunctionsRuntime(suite.tools)
         return suite, env, runtime
 
@@ -389,7 +453,7 @@ class AgentDojoRunner:
         """
         from harness.capability import AgentOutcome
 
-        suite, env, runtime = self._prepare(case.domain)
+        suite, env, runtime = self._prepare(case.domain, lang=lang)
         pre_env = copy.deepcopy(env)
         inj_id = (case.source_case_id or "").split("/")[-1]
         injection_task = suite.injection_tasks.get(inj_id)
@@ -442,10 +506,14 @@ class AgentDojoRunner:
         """Run one security case: user task, with the attacker's payload injected."""
         suite = self.suites[case.domain]
         vectors = suite.get_injection_vector_defaults()
-        text = payload if payload is not None else case.attacker_goal_nl
+        if payload is None:
+            from corpus.attacks import render
+
+            payload = render(case.attacker_goal_nl, lang=case.lang)
+        text = payload
         injections = {k: text for k in vectors} if text else {}
 
-        suite, env, runtime = self._prepare(case.domain, injections)
+        suite, env, runtime = self._prepare(case.domain, injections, lang=case.lang)
         pre_env = copy.deepcopy(env)
 
         parts = (case.source_case_id or "").split("/")

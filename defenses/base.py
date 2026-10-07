@@ -34,6 +34,9 @@ class RunContext(BaseModel):
     user_task: str                       # trusted
     tool_call_index: int = 0
     prior_tool_names: list[str] = []
+    # Names of the tools the agent was given. Planner-based Class C defenses
+    # choose from these; added in Phase 4 with a default, so old traces load.
+    available_tools: list[str] = []
 
 
 class Verdict(BaseModel):
@@ -57,6 +60,26 @@ class Verdict(BaseModel):
 
 @runtime_checkable
 class Defense(Protocol):
+    """The required surface: inspect every tool output before the model sees it.
+
+    Phase 4 found that `inspect` alone cannot express half the planned defenses
+    -- an allowlist judges the tool *call*, not its output; an instruction
+    hierarchy lives in the system prompt. So the loop also honours these
+    OPTIONAL methods, looked up with `getattr` so a defense that does not need
+    one simply omits it (and every Phase 0-2 defense keeps working unchanged):
+
+    - `bind(ctx) -> Defense`: a fresh per-run instance. Anything that keeps
+      state across one episode (a plan, a canary) must implement it, because a
+      single defense object is shared by every worker thread in the grid.
+    - `system_prompt(base, ctx) -> str`: rewrite the system prompt (Class B).
+    - `extra_tools() -> list[dict]`: tool schemas to advertise beyond the
+      suite's own (decoys). The loop never executes these; `check_call` must
+      refuse them.
+    - `check_call(name, args, ctx) -> Verdict`: judge a tool call before it
+      runs. `block=True` means the tool does not run and the model is told so
+      (Class C).
+    """
+
     name: str
     klass: DefenseClass
 
