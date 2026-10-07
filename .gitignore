@@ -24,3 +24,12 @@ vendor/agentdojo/
 # OS
 Thumbs.db
 desktop.ini
+
+# Colab round-trips: the archive and any local extraction of it (the contents are
+# merged into .cache/, traces/ and analysis/out/, which have their own rules above).
+*.tgz
+cache/
+
+# Offline wiring checks (--fake) and the notebook's old auto-printed entry: not results.
+analysis/out/*_fake.json
+analysis/out/phase1_results_entry.md
