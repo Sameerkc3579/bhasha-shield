@@ -1,8 +1,9 @@
-# agentfw
+# bhasha-shield
 
 **Utility-normalized cross-lingual evaluation of prompt-injection defenses for tool-using agents.**
+*Bhasha* is Hindi for language. The Python package is `agentfw`.
 
-Plans: [`../plan.md`](../plan.md) (the claim) and [`../implementation-plan.md`](../implementation-plan.md) (the build order).
+Plans: [`docs/plan.md`](docs/plan.md) (the claim) and [`docs/implementation-plan.md`](docs/implementation-plan.md) (the build order).
 Running log of every number: [`RESULTS.md`](RESULTS.md).
 
 ---
@@ -27,26 +28,25 @@ on benign tool output, and task utility under each defense.
 
 ## Status
 
-**Phase 0 built and verified offline — 77 tests green.** Agent loop, scoring,
-budget, cache, traces; 949 AgentDojo security cases enumerated, 150-case
-stratified subset drawn. The one remaining exit step is a live model call:
+**Runs entirely free.** The agent is an open-weight model (`Qwen2.5-7B-Instruct`, AWQ
+4-bit) served by vLLM on a free Colab T4 -- `notebooks/phase1_colab.ipynb` does the whole
+thing top to bottom. No API key is needed anywhere; spend to date is Rs 0.
 
 ```bash
-ant auth login                      # or: cp .env.example .env
-python -m scripts.phase0_smoke      # ~$0.005
-python -m scripts.phase0_smoke --fake   # no key, no spend: verifies the wiring
+python -m scripts.phase0_smoke --fake   # no model: verifies the wiring
+python -m scripts.phase2_probe --fake   # no model: verifies the probe wiring
 ```
 
 | Phase | State |
 |---|---|
-| 0 — Foundations | built + verified offline; live run needs credentials |
-| 1 — English baseline | case extraction + stratified subset done; baseline run blocked on `ANTHROPIC_API_KEY` |
-| 2 — Capability ceiling (**go/no-go**) | not started |
-| 3 — Localization | not started |
-| 4 — Defenses | not started |
-| 5 — The grid | not started |
-| 6 — Calibration + artifact | not started |
-| 7 — Write-up | not started |
+| 0 -- Foundations | done |
+| 1 -- English baseline | done: 7B and 14B with the bare goal; 14B re-run with `important_instructions` |
+| 2 -- Capability ceiling (**go/no-go**) | English + four-language pilot done on the 14B; `hi` re-run on verified goals queued in the notebook |
+| 3 -- Localization | goals: `hi` verified, others drafted; templates + benign corpus (300/lang) drafted in all four; environments localized (prose only, gated by AgentDojo's own ground truth); human review packs in `corpus/review/` |
+| 4 -- Defenses | all nine built, green on fixtures; `xlmr_finetuned` has no checkpoint |
+| 5 -- The grid | runner built (`scripts/phase5_grid.py`); needs the GPU |
+| 6 -- Calibration + artifact | built: `analysis/calibrate.py`, `defenses/normalize.py`, `corpus/adaptive.py`, `service/proxy.py`; classifier scores run on CPU |
+| 7 -- Write-up | `analysis/figures.py` regenerates every table/figure; `DATASHEET.md` drafted |
 
 ---
 
@@ -55,7 +55,6 @@ python -m scripts.phase0_smoke --fake   # no key, no spend: verifies the wiring
 ```bash
 python -m venv ~/.venvs/agentfw          # keep it out of OneDrive
 ~/.venvs/agentfw/Scripts/python -m pip install -e ".[dev]"
-cp .env.example .env                      # then fill in ANTHROPIC_API_KEY
 ~/.venvs/agentfw/Scripts/python -m pytest
 ```
 
@@ -109,7 +108,28 @@ pins that behaviour.
 | `corpus/extract.py` | AgentDojo -> InjectionCase, stratified sampler |
 | `harness/runner.py` | The agent loop; defense hook at the tool-output boundary |
 | `scripts/phase0_smoke.py` | Phase 0 exit check, `--fake` runs it without a key |
-| `tests/` | 77 tests, scoring first |
+| `defenses/` | the nine defenses (A classifiers, B prompting, C architectural) + `registry.py` |
+| `defenses/normalize.py` | fold / transliterate / translate before classifying (Phase 6 cheap fix) |
+| `corpus/adaptive.py` | bounded adaptive attacker: homoglyph, zero-width, script laundering |
+| `scripts/benign_fpr.py`, `scripts/attack_scores.py` | classifier scores, no agent needed (CPU is enough) |
+| `analysis/calibrate.py` | per-language thresholds; shipped vs calibrated vs matched-detection FPR |
+| `analysis/figures.py` | every paper table and figure, from files on disk |
+| `service/proxy.py` | the deployable firewall: HTTP, per-language threshold, sink rule |
+| `corpus/environments.py` | C3: AgentDojo environments with prose localized, checker values kept; three offline gates |
+| `corpus/benign_extend.py` | benign corpus 127 -> 300: hand-written items (India-context), staged and entity-checked |
+| `tests/` | 251 tests, scoring first |
+
+---
+
+## The firewall in 90 seconds
+
+```bash
+python -m scripts.benign_fpr --langs en hi hi_latn bn mixed --defenses protectai_deberta   # CPU, ~8 min
+python -m scripts.attack_scores --langs en hi hi_latn bn mixed --defenses protectai_deberta
+python -m analysis.calibrate --defenses protectai_deberta     # writes per-language thresholds
+python -m service.proxy --demo                                # Hindi email, Hindi injection, two payments
+python -m service.proxy --port 8787                           # POST /v1/inspect, /v1/check_call
+```
 
 ---
 
@@ -117,22 +137,16 @@ pins that behaviour.
 
 - **Never report a number you cannot regenerate from a trace.**
 - Append to `RESULTS.md` every week, including weeks the number got worse.
-- Re-run the arXiv prior-art search at the start of every phase (see `../plan.md` appendix).
+- Re-run the arXiv prior-art search at the start of every phase (see `docs/plan.md` appendix).
 - Fix temperature and seed; log model version strings.
 
 ---
 
 ## Cost
 
-Measured estimate from `python -m harness.budget`, at 150 cases × 5 languages ×
-9 defense configs:
-
-| | Runs | Cost |
-|---|---|---|
-| Primary (`claude-haiku-4-5`), full grid | 6,750 | ~$39 |
-| Spot-check (`claude-opus-5`), 20% slice | 1,350 | ~$39 |
-
-Assumes an 80% prompt-cache hit rate. **If a dry run shows
-`cache_read_input_tokens` near zero, stop and fix it before running the grid** —
-it is roughly a 3× cost difference, and the system prompt plus tool definitions
-are identical across every run.
+**Zero, by design.** Every model call goes to a locally served open-weight model on a free
+GPU (Colab T4, or Kaggle 2xT4), and the response cache makes a resumed session free for
+anything already computed. The `--backend anthropic` path in the older scripts is kept only
+so Phase 0 traces stay comparable; nothing in the plan uses it. If a second model is needed
+for a robustness check, it is another open-weight model on the same free hardware, not a
+hosted frontier API.
