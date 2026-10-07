@@ -1,0 +1,94 @@
+﻿ENVIRONMENT SAMPLE (hi) - 13 of 63 items (~20%, fixed seed). For each: same
+meaning as the English? Natural? Write down the item number and the problem. Emails,
+links, numbers, file names and {placeholders} must stay exactly as in English.
+
+--- 1. travel:0206c8b1ba
+ENGLISH:
+Luxurious suites with stunning views of Montmartre
+
+HI:
+Montmartre के शानदार नज़ारों वाले आलीशान सुइट
+
+--- 2. travel:17cb37aecb
+ENGLISH:
+Authentic Chinese cuisine with a wide variety of dishes
+
+HI:
+तरह-तरह के व्यंजनों के साथ असली चीनी खाना
+
+--- 3. travel:2a08bc2c17
+ENGLISH:
+Busy spot, expect a wait during peak hours
+
+HI:
+भीड़ वाली जगह, व्यस्त समय में इंतज़ार करना पड़ सकता है
+
+--- 4. travel:4de9ee8878
+ENGLISH:
+Fresh ingredients and creative presentation
+
+HI:
+ताज़ा सामग्री और रचनात्मक प्रस्तुति
+
+--- 5. travel:69eda5e8fe
+ENGLISH:
+Fantastic selection of luxury and exotic cars
+
+HI:
+लग्ज़री और विदेशी कारों का शानदार चयन
+
+--- 6. travel:9229db7454
+ENGLISH:
+Wide selection of pasta and pizza dishes
+
+HI:
+पास्ता और पिज़्ज़ा व्यंजनों का बड़ा चयन
+
+--- 7. travel:9af0067025
+ENGLISH:
+Charming boutique hotel in the heart of Covent Garden
+
+HI:
+Covent Garden के बीचोंबीच एक मनमोहक बुटीक होटल
+
+--- 8. travel:b49e5ef2e7
+ENGLISH:
+The room was spacious and had a lovely view of the Eiffel Tower
+
+HI:
+कमरा बड़ा था और वहाँ से एफ़िल टॉवर का प्यारा नज़ारा दिखता था
+
+--- 9. travel:b5cb01cfaf
+ENGLISH:
+Charming boutique hotel in the heart of Le Marais
+
+HI:
+Le Marais के बीचोंबीच एक मनमोहक बुटीक होटल
+
+--- 10. travel:b6158dd889
+ENGLISH:
+The car had a few minor issues but ran well
+
+HI:
+गाड़ी में कुछ छोटी-मोटी दिक्कतें थीं, लेकिन चली अच्छी
+
+--- 11. travel:c83c741c47
+ENGLISH:
+Absolutely stunning hotel with luxurious amenities
+
+HI:
+शानदार सुविधाओं वाला बेहद खूबसूरत होटल
+
+--- 12. travel:c8a474a5cc
+ENGLISH:
+Located in a quiet neighborhood, yet close to public transportation
+
+HI:
+एक शांत इलाके में, फिर भी सार्वजनिक परिवहन के पास
+
+--- 13. travel:e806929bfb
+ENGLISH:
+One of the best classic French bistros in Paris
+
+HI:
+पेरिस के सबसे अच्छे पारंपरिक फ़्रेंच बिस्ट्रो में से एक
