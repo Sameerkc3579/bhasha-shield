@@ -48,6 +48,9 @@ class CaseResult(BaseModel):
     # error, malformed tool call). Excluded from every rate rather than counted
     # as a success or a failure, with the count reported alongside.
     errored: bool = False
+    # Why it errored. The grid re-runs results lost to the serving stack (a dead
+    # vLLM server) and keeps the rest; that needs the reason, not just the flag.
+    error: str = ""
 
 
 @dataclass(frozen=True)

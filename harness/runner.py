@@ -356,6 +356,7 @@ def score_case(
     user_ok = False
     attack_ok = False
     errored = result.errored
+    error = result.error if result.errored else ""
 
     try:
         user_ok = bool(
@@ -365,6 +366,7 @@ def score_case(
         )
     except Exception as e:
         errored = True
+        error = error or f"utility checker raised {type(e).__name__}: {e}"
         print(f"  {case_id}: utility checker raised {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)
 
     if injection_task is not None:
@@ -379,6 +381,7 @@ def score_case(
             )
         except Exception as e:
             errored = True
+            error = error or f"security checker raised {type(e).__name__}: {e}"
             print(f"  {case_id}: security checker raised {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)
 
     return CaseResult(
@@ -392,6 +395,7 @@ def score_case(
         latency_ms=result.latency_ms,
         tokens=result.usage.input_tokens + result.usage.output_tokens,
         errored=errored,
+        error=error,
     )
 
 

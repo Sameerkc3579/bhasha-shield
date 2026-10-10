@@ -179,3 +179,68 @@ def test_clean_pass_runs_each_user_task_once(monkeypatch):
     assert seen == ["banking__user_task_0__injection_task_1", "banking__user_task_3__injection_task_1"]
     assert [r.case_id for r in out] == [c.case_id for c in cases]
     assert [r.user_task_success for r in out] == [True, True, False]
+
+
+# --------------------------------------------------------------------------
+# 2026-10-10: vLLM died mid-session; later cells "finished" all errored and read as done
+# --------------------------------------------------------------------------
+
+class APIConnectionError(Exception):
+    """Same class name as the openai SDK's, which is what the grid matches on."""
+
+
+def test_results_lost_to_the_server_are_rerun_and_merged(sandbox, monkeypatch, capsys):
+    tmp, made = sandbox
+    down = {"on": True}
+
+    def complete(self, *, system, messages, tools):
+        self.calls += 1
+        if down["on"]:
+            raise APIConnectionError("Connection error.")
+        return ModelResponse(text='["send_money"]' if not tools else "done")
+
+    monkeypatch.setattr(DoneClient, "complete", complete)
+    # camel_lite's planner call fails outside the agent loop, undefended's inside it
+    argv = ["--langs", "en", "--defenses", "undefended", "camel_lite",
+            "--limit", "3", "--workers", "2", "--model", "m"]
+    assert run(argv, monkeypatch) == 3                          # server down: not done
+    for d in ("undefended", "camel_lite"):
+        assert grid.cell_status("en", d, "important_instructions") == "repair"
+    cell = json.loads(grid.cell_path("en", "camel_lite", "important_instructions").read_text(encoding="utf-8"))
+    assert all(r["error"].startswith("APIConnectionError") for r in cell["attack"])
+
+    down["on"] = False
+    assert run(argv, monkeypatch) == 0                          # server back: repaired
+    out = capsys.readouterr().out
+    assert "repair: 3 lost to the server" in out
+    for d in ("undefended", "camel_lite"):
+        assert grid.cell_status("en", d, "important_instructions") == "done"
+        rows = json.loads(grid.cell_path("en", d, "important_instructions").read_text(encoding="utf-8"))["attack"]
+        assert len(rows) == 3 and not any(r["errored"] for r in rows)
+    calls = sum(c.calls for c in made)
+    assert run(argv, monkeypatch) == 0                          # third run: nothing left to do
+    assert sum(c.calls for c in made) == calls
+
+
+def test_only_server_failures_and_legacy_blanks_are_rerun():
+    from harness.scoring import CaseResult
+
+    def r(errored, error=""):
+        return CaseResult(case_id="a", lang="en", defense="d", model="m", errored=errored, error=error)
+
+    assert grid.needs_rerun(r(True, "APIConnectionError: Connection error."))
+    assert grid.needs_rerun(r(True, "APITimeoutError: Request timed out."))
+    assert grid.needs_rerun(r(True))                            # written before errors were kept
+    assert not grid.needs_rerun(r(True, "BadRequestError: Error code: 400 - maximum context length"))
+    assert not grid.needs_rerun(r(False))
+
+
+def test_repair_keeps_successful_results_untouched(sandbox, monkeypatch):
+    """Only lost ids run again; a kept result is not replayed or rewritten."""
+    _cell(grid.cell_path("en", "undefended", "important_instructions"), "en", "undefended",
+          [_row("keep", True), {**_row("lost", False), "errored": True, "error": "APIConnectionError: x"}])
+    rows = grid.load_cell(grid.cell_path("en", "undefended", "important_instructions"))
+    fresh = [rows[1].model_copy(update={"errored": False, "error": ""})]
+    merged = grid.merge(rows, fresh)
+    assert [m.case_id for m in merged] == ["keep", "lost"]
+    assert merged[0] is rows[0] and not merged[1].errored

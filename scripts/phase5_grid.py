@@ -6,7 +6,10 @@
 One cell = the 150 cases in one language under one defense, attack injected.
 Each finished cell is written to `analysis/out/grid/` before the next starts, so
 a killed Colab session loses at most the cell that was running; re-running the
-same command skips every cell already on disk (`--rerun` to force).
+same command skips every cell already on disk (`--rerun` to force) -- except
+results lost to the server (`needs_rerun`), which run again and are merged in.
+A cell that still has such results exits 3, so the notebook can restart vLLM.
+`--status` reports each cell as done / repair / missing without a server.
 
 Utility under each defense comes from a separate **clean pass** (no injection).
 In AgentDojo's English environment there is nothing language-specific in a
@@ -130,7 +133,8 @@ def run_cells(cases, defense, client, *, inject: bool, attack: str, workers: int
                 out.append(fut.result())
             except Exception as e:  # a harness failure must not kill the cell
                 out.append(CaseResult(case_id=c.case_id, lang=c.lang, defense=defense.name,
-                                      model=client.model, errored=True))
+                                      model=client.model, errored=True,
+                                      error=f"{type(e).__name__}: {e}"))
                 print(f"    {c.case_id} raised {type(e).__name__}: {str(e)[:200]}")
             if i % 25 == 0:
                 print(f"    [{i}/{len(cases)}]")
@@ -172,6 +176,39 @@ def clean_path(defense: str, lang: str = "en", localized: bool = False) -> Path:
     if localized and lang != "en":
         return OUT / f"clean__{defense}__{lang}__locenv.json"
     return OUT / f"clean__{defense}.json"
+
+
+# Failures of the serving stack, not of the agent. 2026-10-09: vLLM died at the end
+# of `en spotlight` and every later cell "finished" in about a minute, all errored --
+# and existing files read as done, so the next session would have skipped them.
+INFRA_ERRORS = ("APIConnectionError", "APITimeoutError")
+
+
+def needs_rerun(r: CaseResult) -> bool:
+    """A result lost to the server: run it again. Files written before 2026-10-10
+    kept no error text, so an errored result without one counts too -- once: the
+    re-run records the reason, and a genuine failure (context overflow) then stays."""
+    return r.errored and (not r.error or r.error.startswith(INFRA_ERRORS))
+
+
+def lost(f: Path, key: str) -> set[str]:
+    """Case ids in a cell or clean file that have to run again (none if no file)."""
+    return {r.case_id for r in load_cell(f, key) if needs_rerun(r)} if f.exists() else set()
+
+
+def cell_status(lang: str, defense: str, attack: str, localized: bool = False) -> str:
+    """'done', 'missing', or 'repair' (on disk, but results lost to the server)."""
+    f, cp = cell_path(lang, defense, attack, localized), clean_path(defense, lang, localized)
+    if not f.exists() or not cp.exists():
+        return "missing"
+    return "repair" if lost(f, "attack") or lost(cp, "clean") else "done"
+
+
+def merge(old: list[CaseResult], new: list[CaseResult]) -> list[CaseResult]:
+    """`old` with `new` in place of the same case ids, file order kept."""
+    fresh = {r.case_id: r for r in new}
+    seen = {r.case_id for r in old}
+    return [fresh.get(r.case_id, r) for r in old] + [r for r in new if r.case_id not in seen]
 
 
 def _fmt(r) -> str:
@@ -230,6 +267,8 @@ def main() -> int:
                          "undefended always runs every case")
     ap.add_argument("--rerun", action="store_true")
     ap.add_argument("--summary-only", action="store_true")
+    ap.add_argument("--status", action="store_true",
+                    help="print '<lang> <defense> done|repair|missing' per cell and exit (no server needed)")
     args = ap.parse_args()
 
     from defenses.registry import DEFENSES, is_known
@@ -239,6 +278,12 @@ def main() -> int:
         sys.exit(f"unknown defense(s): {unknown}; known: undefended {' '.join(DEFENSES)}")
     # transformers' pipeline: -1 = CPU, n = cuda:n
     args.classifier_device = -1 if args.classifier_device == "cpu" else int(args.classifier_device)
+
+    if args.status:
+        for lang in args.langs:
+            for d in args.defenses:
+                print(f"{lang} {d} {cell_status(lang, d, args.attack, args.localized_env)}")
+        return 0
 
     if args.summary_only:
         for lang in args.langs:
@@ -251,6 +296,7 @@ def main() -> int:
                                 base_url=args.base_url or DEFAULT_BASE_URL, cache=ResponseCache())
     OUT.mkdir(parents=True, exist_ok=True)
     built: dict = {}  # one instance per defense: a classifier loads its weights once
+    incomplete = 0
 
     for lang in args.langs:  # language-by-language: a partial grid is whole languages
         cases = load_cases(lang, args.allow_unverified)
@@ -274,22 +320,34 @@ def main() -> int:
                 built[name] = build_defense(name, client, args)
             defense = built[name]
 
+            # A file on disk is kept, except results lost to the server: those run
+            # again (successes are kept, not replayed) and are merged back in.
             cp = clean_path(name, lang, loc)
-            if args.rerun or not cp.exists():
-                print(f"[clean] {name}: {len({user_task_key(c) for c in cases})} distinct user tasks "
-                      f"for {len(cases)} cases{' (' + lang + ' environment)' if loc else ''}")
+            old_clean = load_cell(cp, "clean") if cp.exists() and not args.rerun else []
+            redo = lost(cp, "clean") if old_clean else set()
+            if not old_clean or redo:
+                todo = [c for c in cases if c.case_id in redo] if old_clean else cases
+                print(f"[clean] {name}: {len({user_task_key(c) for c in todo})} distinct user tasks "
+                      f"for {len(todo)} cases{' (' + lang + ' environment)' if loc else ''}"
+                      f"{f' (repair: {len(redo)} lost to the server)' if old_clean else ''}")
                 with RunTrace(phase="phase5", lang=lang if loc else "en",
                               defense=f"{name}-clean{'-locenv' if loc else ''}", model=client.model) as tr:
-                    clean = run_clean_dedup(cases, defense, client, attack=args.attack,
+                    clean = run_clean_dedup(todo, defense, client, attack=args.attack,
                                             workers=args.workers, trace=tr, localized_env=loc)
                 cp.write_text(json.dumps({
                     "defense": name, "model": client.model, "clean_dedup_by_user_task": True,
                     "environment": f"localized:{lang}" if loc else "english (unlocalized)",
-                    "clean": [r.model_dump() for r in clean]}, indent=1), encoding="utf-8")
+                    "clean": [r.model_dump() for r in merge(old_clean, clean)]}, indent=1), encoding="utf-8")
 
             f = cell_path(lang, name, args.attack, loc)
-            if f.exists() and not args.rerun:
-                print(f"[{lang}] {name}: done, skipping ({f})")
+            old = load_cell(f) if f.exists() and not args.rerun else []
+            redo = lost(f, "attack") if old else set()
+            if old and not redo:
+                if lost(cp, "clean"):
+                    incomplete += 1
+                    print(f"[{lang}] {name}: clean pass still has results lost to the server -- NOT done")
+                else:
+                    print(f"[{lang}] {name}: done, skipping ({f})")
                 continue
             run_cases = cases
             if args.scorable_only and name != "undefended":
@@ -297,25 +355,36 @@ def main() -> int:
                     sys.exit(f"[{lang}] --scorable-only needs a Phase 2 probe for {client.model}")
                 smap, _ = scorable_map(lang, client.model, loc, args.attack)
                 run_cases = [c for c in cases if smap.get((c.case_id, c.lang), True)]
+            scorable_only = run_cases is not cases
+            if old:
+                run_cases = [c for c in cases if c.case_id in redo]
             print(f"[{lang}] {name}: {len(run_cases)} cases"
-                  f"{' (scorable set only)' if run_cases is not cases else ''}")
+                  f"{' (scorable set only)' if scorable_only else ''}"
+                  f"{f' (repair: {len(redo)} lost to the server)' if old else ''}")
             with RunTrace(phase="phase5", lang=lang, defense=f"{name}-{args.attack}{'-locenv' if loc else ''}",
                           model=client.model) as tr:
                 results = run_cells(run_cases, defense, client, inject=True, attack=args.attack,
                                     workers=args.workers, trace=tr,
                                     allow_unverified=args.allow_unverified, localized_env=loc)
-            results = apply_achievability(results, scorable_map(lang, client.model, loc, args.attack)[0])
+            results = apply_achievability(merge(old, results),
+                                          scorable_map(lang, client.model, loc, args.attack)[0])
             f.write_text(json.dumps({
                 "lang": lang, "defense": name, "attack": args.attack, "model": client.model,
                 "probe": probe_file, "unverified_corpus": args.allow_unverified,
                 "environment": f"localized:{lang}" if loc else "english (unlocalized)",
-                "scorable_only": run_cases is not cases,
+                "scorable_only": scorable_only,
                 "attack": [r.model_dump() for r in results]}, indent=1), encoding="utf-8")
             errored = sum(r.errored for r in results)
             print(f"[{lang}] {name}: ASR {asr(results)}  uASR {uasr(results)}  errored {errored}")
+            still = len(lost(f, "attack") | lost(cp, "clean"))
+            if still:
+                incomplete += 1
+                print(f"[{lang}] {name}: {still} results lost to the server -- NOT done; "
+                      "a re-run repairs only those")
 
         summarise_lang(lang, args.attack, args.defenses, loc)
-    return 0
+    # 3 = the server failed under us: the notebook restarts vLLM and retries the step.
+    return 3 if incomplete else 0
 
 
 if __name__ == "__main__":
