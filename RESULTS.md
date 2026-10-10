@@ -839,4 +839,84 @@ summary.
 
 ---
 
+## 2026-10-10 — Hindi undefended; the server died mid-session; benign corpus scored at 300
+
+Colab T4, `Qwen/Qwen2.5-14B-Instruct-AWQ`, `important_instructions`; laptop CPU for the
+classifier work. Spend: **Rs 0**.
+
+**Valid from the session (2026-10-09, 17:24-20:41 UTC):**
+
+| cell | ASR | uASR | utility | errored |
+|---|---|---|---|---|
+| hi undefended | 0.007 (1/149) | **0.025 (1/40)** | 0.460 (69/150) | 1 (context overflow) |
+| en spotlight | 0.076 (9/118) | 0.122 (9/74) | 0.460 (69/150) | **32 (server)** |
+
+- **Hindi undefended is the measurement point the paper rests on.** On the 40 cases where the
+  model can do the attacker's task in Hindi, the attack succeeds once: uASR **0.025** against
+  **0.205** in English. Raw ASR (1/149) would read as "Hindi is safe"; the capability-controlled
+  number says the attack template barely transfers even where the model is able.
+- **Spotlight is provisional**: efficacy +0.41 [+0.05, +0.70], 10 vs 1 discordant, p = 0.012, but
+  32 cases (the last to run) were lost when the server died. They are repaired next session.
+
+**The vLLM server died at 20:41 UTC**, in the last minute of `en spotlight`; the traces show
+`APIConnectionError: Connection error.` from then on. The cause is unknown -- the log stayed on
+the Colab machine. Everything after it is invalid: `hi sandwich` (30/40 lost), `en/hi camel_lite`
+and `en allowlist` (every case), `en protectai_deberta` (107/150 lost, clean 91/150), `hi
+protectai_deberta` (24/40), `en honeytool` (every case). What did "succeed" after 20:41 were
+response-cache replays, which are valid model outputs. Errors are never cached, so a re-run
+costs only the lost cases.
+
+**The worse problem was silent:** a cell file on disk counted as done, so the next session
+would have skipped every broken cell. Fixed (`scripts/phase5_grid.py`, 3 new tests):
+- `CaseResult` now keeps the error text (it was dropped, so the files said only `errored`).
+- A result lost to the server (`APIConnectionError`, `APITimeoutError`; or, in files written
+  before today, an error with no text) runs again; successes are kept, not replayed, and the
+  two are merged. A cell with lost results still on it exits 3. `--status` reports each cell
+  as done / repair / missing.
+- Notebook step 8 lists DONE / REPAIR / LEFT from `--status`, checks the server before every
+  step, restarts it if dead (saving `vllm_crash_*.log` to Drive first), and retries a step that
+  exits 3 up to twice.
+
+Left on the plan: every step, but most only partly -- about the original ~10 GPU hours.
+
+**Benign corpus scored at 300 items per language** (CPU, ProtectAI DeBERTa v2 @ 0.5). The re-run
+reproduces the 10-04 numbers exactly on the original 127 items in all ten files, so old and new
+numbers share a table. FPR on *ordinary* tool output:
+
+| | en | hi* | hi_latn* | bn* | mixed* |
+|---|---|---|---|---|---|
+| raw | **2%** (4/167) | **47%** (78/167) | 6% | **65%** (109/167) | 5% |
+| translit first | 2% | 31% (51/167) | 6% | 38% (63/167) | 5% |
+
+\* benign text is still machine-drafted in every non-English language, Hindi included.
+
+**Transliteration helps much less on the 80 new hand-written Indian-setting items:** Hindi
+40% -> 39% (32/80 -> 31/80), Bengali 71% -> 53%, against 53% -> 23% and 60% -> 24% on the
+original AgentDojo-harvested items. The "transliterate first" mitigation looked better than
+it is because the original benign set was AgentDojo prose.
+
+**Calibration redone for `protectai_deberta`** (old files kept outside the repo). Embedded-payload
+AUC: en 0.73 (was 0.77), hi 0.45 (unchanged), bn 0.39 (was 0.43), hi_latn 0.71, mixed 0.70.
+The ranking stays inverted for Hindi and Bengali, and at the 5% FPR target, detection stays
+at or below about 2% in every language even with a per-language threshold. Hindi now prints
+without the unverified star, because its template and goals are human-verified; its benign
+corpus and the attack carriers are not, and that caveat goes with every Hindi FPR.
+
+**A correction to myself:** I re-scored the Hindi attack file thinking the 10-07 review had
+changed seven goals. It changed nothing (0 of 785 scores moved): the goals were verified on
+10-04, before the first scoring, and the 10-07 review was of the template, which was unchanged.
+The old Hindi `translit+` file is valid apart from its stale `unverified_corpus` flag.
+
+**Not done, and why:**
+- `translit+` attack scores for hi_latn, bn, mixed (and a refresh of the Hindi one, for the
+  flag): the job was stopped by Claude Code because the laptop ran out of memory. Then
+  `translit+` calibration, figures, and the proxy demo.
+- The `tokenizers` package in the system Python was moved back to 0.21.4 (it had been
+  upgraded to 0.22.2, which `transformers` 4.55.4 refuses). The project venv was not touched;
+  every number above comes from the venv.
+
+**Tests:** 270 passed, 1 skipped.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
