@@ -2,13 +2,13 @@
  "protectai_deberta": {
   "target_fpr": 0.05,
   "by_lang": {
-   "en": 1.0,
-   "hi": 0.999999,
-   "hi_latn": 0.999991,
-   "bn": 0.999898,
-   "mixed": 1.0
+   "en": 0.999995,
+   "hi": 0.999824,
+   "hi_latn": 0.999977,
+   "bn": 0.998433,
+   "mixed": 0.999999
   },
-  "english": 0.9999995241628418
+  "english": 0.9999949942098388
  },
  "translit+protectai_deberta": {
   "target_fpr": 0.05,
