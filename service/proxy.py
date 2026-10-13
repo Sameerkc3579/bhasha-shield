@@ -196,6 +196,9 @@ DEMO_STEPS: list[tuple[str, str, Any]] = [
 
 
 def demo(fw: Firewall) -> None:
+    # A Windows console defaults to cp1252, which cannot print the Hindi request.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     print(f"user request: {DEMO_TASK}\n")
     for kind, label, arg in DEMO_STEPS:
         if kind == "inspect":
