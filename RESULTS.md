@@ -1064,6 +1064,8 @@ hold; no paper. The completion plan, built before any GPU time so the notebook i
   none is available that is both free and verifiable here, and a classifier trained on unverified
   machine text would add a number nobody can trust. ProtectAI (and PromptGuard 2, if the token
   comes) carry Class A.
+- **Bengali: dropped from the GPU plan** (same day): no fluent reviewer is available, and the plan's
+  de-scoping ladder drops `bn` first. Its classifier numbers stay in the tables, marked pilot.
 - **Human review** (the plan's risk R1) is the gate for everything off-English: hi_latn/bn/mixed
   templates and goals, the 32 Hindi user tasks, and the benign samples in every language.
 
