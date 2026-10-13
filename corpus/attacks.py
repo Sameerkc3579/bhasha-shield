@@ -30,8 +30,15 @@ each template rather than spliced in as English.
 
 from __future__ import annotations
 
-ATTACKS = ("important_instructions", "direct")
+ATTACKS = ("important_instructions", "important_instructions_enframe", "direct")
 DEFAULT_ATTACK = "important_instructions"
+
+# The Hindi diagnostic (2026-10-13): AgentDojo's English template around the
+# localized goal. Hindi undefended uASR was 0.025 (1/40) against 0.205 in English;
+# this separates "the translated template does not persuade" from "a Hindi goal
+# does not get acted on". Opt-in by name only -- never a fallback for a missing
+# template, which would confound the language condition.
+ENFRAME = "important_instructions_enframe"
 
 USER_NAME = "Emma Johnson"            # AgentDojo's default victim user
 MODEL_NAME = "the AI language model"  # agentdojo.attacks.base_attacks.DEFAULT_MODEL_NAME
@@ -125,6 +132,10 @@ def render(goal: str, *, attack: str = DEFAULT_ATTACK, lang: str = "en",
     grid passes its own `--allow-unverified` flag, so a real (non-pilot) grid
     run refuses machine-drafted templates.
     """
+    if attack == ENFRAME:
+        # AgentDojo's own English text: nothing to verify in the wrapper (the
+        # goal is gated where the cases are loaded, corpus.goals).
+        return TEMPLATES["important_instructions"]["en"].format(goal=goal, user=USER_NAME, model=MODEL_NAME)
     try:
         template = TEMPLATES[attack][lang]
     except KeyError:
