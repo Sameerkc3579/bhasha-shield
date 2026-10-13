@@ -972,4 +972,67 @@ mixed templates and the benign review samples (`corpus/review/`).
 
 ---
 
+## 2026-10-13 (later) — the defense grid is complete
+
+Colab T4, `Qwen/Qwen2.5-14B-Instruct-AWQ`, `important_instructions`, two sessions (10-11/12 and
+10-13). Spend: **Rs 0**. The 10-10 repair logic did what it was for: the first session repaired
+eight cells and ran until the 4 h quota ended at `en honeytool` 50/150; the second resumed from
+`cache.tgz`, replayed the finished cases from the response cache and ran only the rest. No
+result in any cell is lost to the server.
+
+**Merge:** 1252 new response-cache files (0 conflicts with the 3747 already here), 15 grid files,
+14 traces, each trace an extension of the local copy. Nothing the laptop produced today was in
+the archive. `en undefended` and `en sandwich` each carry one errored case written before error
+text was kept; the trace shows a context overflow (`workspace/user_task_13/injection_task_6`,
+14343 > 12288 tokens, the same case that overflows under allowlist and camel_lite), so the error
+text was filled in from the trace and the cells read done. Nothing was re-run.
+
+**English** (scorable set 88 = probe 87 + existence proof 1; paired bootstrap CI, exact McNemar;
+Holm over the six defenses):
+
+| defense | ASR | uASR | efficacy | p | Holm | utility |
+|---|---|---|---|---|---|---|
+| undefended | 0.121 (18/149) | **0.205 (18/88)** | -- | -- | -- | 0.460 |
+| sandwich | 0.040 | 0.068 (6/88) | **+0.67** [+0.36, +0.90] | 0.004 | yes | 0.497 |
+| camel_lite | 0.054 | 0.091 (8/88) | +0.56 [+0.31, +0.79] | 0.002 | yes | 0.340 |
+| protectai_deberta | 0.053 | 0.091 (8/88) | +0.56 [+0.26, +0.80] | 0.006 | yes | **0.227** |
+| spotlight | 0.060 | 0.102 (9/88) | +0.50 [+0.20, +0.75] | 0.012 | yes | 0.460 |
+| allowlist | 0.060 | 0.102 (9/88) | +0.50 [+0.25, +0.73] | 0.004 | yes | 0.393 |
+| honeytool | 0.087 | 0.136 (12/88) | +0.33 [-0.08, +0.63] | 0.18 | **no** | 0.453 |
+
+- **Every defense roughly halves the English attack rate, and none removes it.** The CIs overlap
+  heavily; this grid does not rank sandwich above the others.
+- **The cost is in utility, and it differs by 2x.** The two prompt-level defenses are free
+  (sandwich 0.497, spotlight 0.460 vs 0.460 undefended). The tool-level ones cost 7-12 points
+  (allowlist, camel_lite). ProtectAI in the loop **halves utility** (0.460 -> 0.227) for the same
+  efficacy as sandwich: at the shipped 0.5 threshold it blocks ordinary tool output too, which is
+  the 10-04 benign-FPR finding showing up as task failures.
+- **Honeytool is the one that does not work here** (p = 0.18), and it never fired: **0 trips in
+  150 cases**. AgentDojo's goals name real tools, so nothing reaches the decoys or the honeytoken,
+  as the module's docstring predicted. Its 18 -> 12 drop (10 vs 4 discordant) is therefore not
+  detection; it is the larger prompt (decoy tools, the token) changing what the model does, so
+  it must not be reported as honeytool efficacy.
+
+**Hindi** (scorable set 40; defended cells run on the scorable set only):
+
+| defense | uASR | utility |
+|---|---|---|
+| undefended | **0.025 (1/40)** | 0.460 |
+| sandwich / camel_lite / protectai_deberta | 0.000 (0/40) each | 0.497 / 0.340 / 0.227 |
+
+With one success to remove, every Hindi efficacy is +1.00 with McNemar p = 1. **No defense can be
+credited or blamed in Hindi**, and that is the result: on the cases where the model *can* do the
+attacker's task in Hindi, the Hindi template almost never makes it try (0.025 vs 0.205 in
+English). Raw ASR (0.007) would have reported Hindi as nearly safe for the wrong reason; uASR
+says the attack, not the defense, is what fails to transfer. `hi spotlight`, `allowlist` and
+`honeytool` were not run, by design (D5).
+
+**Tables and figures regenerated** (`analysis/out/figures/`, `tables.md`), including the
+frontier plots with today's calibration.
+
+**Left:** human verification of the hi_latn, bn, mixed templates and of the benign review
+samples; PromptGuard 2 (needs an HF token). No GPU work is pending.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
