@@ -1035,4 +1035,42 @@ samples; PromptGuard 2 (needs an HF token). No GPU work is pending.
 
 ---
 
+## 2026-10-13 (plan) — closing the gaps against plan.md
+
+Measured against `docs/plan.md`, seven things fell short: the Hindi grid has no power (1 success
+in 40); utility is not measured per language, so H5 is untested; one model; the grid covers 2 of 5
+languages; human review of the non-English corpus is not done; the planned resume claim does not
+hold; no paper. The completion plan, built before any GPU time so the notebook is uploaded once:
+
+- **Hindi power cannot be bought with more Hindi cases** (all 629 AgentDojo cases would give ~4
+  successes at 0.025). Instead: (a) a diagnostic, `important_instructions_enframe` -- AgentDojo's
+  English template around the Hindi goal -- to tell "the translated template does not persuade"
+  from "a Hindi goal is not acted on"; (b) the off-English defense comparison moves to `hi_latn`
+  and `mixed`, whose scorable sets are larger (59 and 58 on the draft probes, vs 40). Defended cells
+  there run only if undefended reaches 10 successes; below that, the skip is the result.
+- **H5 gets Hindi user instructions** (`corpus/user_tasks.py`, `--localized-user-task`, clean pass
+  only, English environment). Not every task can be scored fairly in Hindi: **38 of 79** check the
+  reply text against English strings, and **9 more** check text the agent writes in its own words
+  against English keywords (a summary must contain "hiking"), or have a degenerate checker
+  (`banking/user_task_8` always passes; `slack/user_task_11` raises). Each is listed with its reason
+  in `EXCLUDED`. **32 tasks remain** (61 of the 150 cases). Gates as for the goals: every entity and
+  every checker string in the English prompt stays verbatim (0 problems on the drafts). The analysis
+  (`analysis/h5.py`) is per task: cost = undefended utility - defended utility, H5 gap = cost(hi) -
+  cost(en), paired bootstrap over tasks.
+- **Second model: Llama 3.1 8B Instruct (AWQ)**, probes and undefended en/hi, results under
+  `analysis/out/llama31_8b/` (`--results-dir`, so its cells can never read as the 14B's). Needs an
+  HF token (gated); the notebook skips it cleanly without one or if tool calling fails.
+- **XLM-R fine-tune: dropped** (de-scoping ladder). It needs a labelled Hindi/Hinglish injection set;
+  none is available that is both free and verifiable here, and a classifier trained on unverified
+  machine text would add a number nobody can trust. ProtectAI (and PromptGuard 2, if the token
+  comes) carry Class A.
+- **Human review** (the plan's risk R1) is the gate for everything off-English: hi_latn/bn/mixed
+  templates and goals, the 32 Hindi user tasks, and the benign samples in every language.
+
+Notebook: one step-8 plan in priority order, which reports per step what it is WAITING ON
+VERIFICATION and skips it, so an early session cannot spend GPU time on unreviewed text.
+**Tests:** 279 passed, 1 skipped.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
