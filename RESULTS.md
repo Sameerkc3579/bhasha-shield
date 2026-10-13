@@ -919,4 +919,57 @@ The old Hindi `translit+` file is valid apart from its stale `unverified_corpus`
 
 ---
 
+## 2026-10-13 — the 10-10 CPU leftovers: `translit+` everywhere, calibration, proxy demo
+
+Laptop CPU only (project venv, `OMP_NUM_THREADS=2` to stay inside 8 GB). Spend: **Rs 0**.
+The Colab grid is running its last cell (`en honeytool`) separately; nothing here depends on it.
+
+**`translit+protectai_deberta` attack scores for hi_latn, bn, mixed** (new) and the Hindi file
+refreshed. The Hindi refresh changed only the stale `unverified_corpus` flag: the largest score
+difference is 3e-6 (CPU thread count), and no decision moves at any threshold. Embedded
+payload, TPR at the shipped 0.5 (read with the FPR table of 10-10: at 0.5, hi and bn also flag
+half or more of ordinary benign text, so these are not usable operating points):
+
+| | en | hi | hi_latn* | bn* | mixed* |
+|---|---|---|---|---|---|
+| raw | 0.22 (33/150) | 0.63 (94/150) | 0.39 | 0.63 (95/150) | 0.55 |
+| translit first | 0.22 | 0.67 (100/150) | 0.39 | 0.87 (130/150) | 0.55 |
+
+**Calibration, both detectors, benign corpus at 300 items, target FPR 5%:**
+
+| embedded-payload AUC | en | hi | hi_latn* | bn* | mixed* |
+|---|---|---|---|---|---|
+| `protectai_deberta` | 0.73 | **0.45** | 0.71 | **0.39** | 0.70 |
+| `translit+protectai_deberta` | 0.73 | 0.61 | 0.71 | 0.76 | 0.70 |
+
+- **Transliteration un-inverts the ranking in Devanagari and Bengali script** (hi 0.45 -> 0.61,
+  bn 0.39 -> 0.76) and is a no-op where the text is already Latin (en, hi_latn, mixed), as it
+  should be.
+- **Hindi's gain shrank with the larger benign set:** 0.69 at 127 items (10-04), 0.61 at 300. The
+  same pattern as the 10-10 FPR table: the 80 hand-written Indian-setting items are harder than
+  AgentDojo prose, and the earlier number flattered the mitigation.
+- **It still does not make a usable detector.** At the per-language 5%-FPR threshold, detection
+  is 1-10% in every language with either detector; the best is bn after transliteration (0.10
+  at FPR 0.05). Thresholds: `analysis/out/calibration/thresholds.json`.
+- Transliteration also strips the zero-width adaptive attack's accidental benefit (en raw 0.35
+  -> 0.02 at the calibrated threshold): the invisible characters made the raw classifier *more*
+  suspicious, and normalising them away removes that.
+
+**Proxy demo** (`python -m service.proxy --demo`, calibrated ProtectAI): the Hindi injection in
+the bill scores 0.996, under the calibrated Hindi threshold of 1.000, so the classifier lets it
+through; the recipient check then blocks `send_money` to the attacker's IBAN and allows the
+landlord payment the user asked for. That is the paper's argument in four lines: off-English,
+the detector is not the layer that saves you. The demo crashed on a Windows console (cp1252
+cannot print the Hindi request); it now switches stdout to UTF-8.
+
+\* unverified machine-drafted corpus: pilot numbers, not results.
+
+**Still waiting on Colab:** `en honeytool`, then the final grid tables and `analysis.figures`
+(its paper table includes the grid). **Waiting on a human:** verification of the hi_latn, bn,
+mixed templates and the benign review samples (`corpus/review/`).
+
+**Tests:** 270 passed, 1 skipped.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
