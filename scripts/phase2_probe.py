@@ -127,7 +127,12 @@ def main() -> int:
                     help="probe unreviewed machine-drafted goals (pilot run; output is marked _draft)")
     ap.add_argument("--localized-env", action="store_true",
                     help="run in the language's localized environment (C3); output is marked _locenv")
+    ap.add_argument("--results-dir", default=None,
+                    help="where the probe file goes (default analysis/out); a second model gets its own")
     args = ap.parse_args()
+    if args.results_dir:
+        global OUT
+        OUT = Path(args.results_dir)
 
     path = corpus_path(args.lang)
     draft = False

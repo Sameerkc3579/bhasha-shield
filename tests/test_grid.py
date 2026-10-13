@@ -235,6 +235,41 @@ def test_only_server_failures_and_legacy_blanks_are_rerun():
     assert not grid.needs_rerun(r(False))
 
 
+def test_localized_user_task_runs_only_a_clean_pass_in_the_language(sandbox, monkeypatch, capsys):
+    """H5: Hindi user instructions, utility only, on the language-fair tasks; resumable."""
+    tmp, made = sandbox
+    seen: list[str] = []
+
+    def complete(self, *, system, messages, tools):
+        self.calls += 1
+        seen.extend(m["content"] for m in messages if m.get("role") == "user" and isinstance(m.get("content"), str))
+        return ModelResponse(text="done")
+
+    monkeypatch.setattr(DoneClient, "complete", complete)
+    argv = ["--langs", "en", "hi", "--defenses", "undefended", "--localized-user-task",
+            "--allow-unverified", "--limit", "3", "--workers", "1", "--model", "m"]
+    assert run(argv, monkeypatch) == 0
+    cp = grid.clean_path("undefended", "hi", usertask=True)
+    meta = json.loads(cp.read_text(encoding="utf-8"))
+    assert meta["user_instructions"] == "hi" and meta["unverified_corpus"] is True and len(meta["clean"]) == 3
+    assert not grid.cell_path("hi", "undefended", "important_instructions").exists()   # no attack cell
+    assert not grid.clean_path("undefended").exists()                                   # English untouched
+    assert seen and all(any("ऀ" <= ch <= "ॿ" for ch in s) for s in seen)     # Devanagari prompts
+    assert grid.cell_status("hi", "undefended", "important_instructions", usertask=True) == "done"
+    calls = sum(c.calls for c in made)
+    assert run(argv, monkeypatch) == 0 and sum(c.calls for c in made) == calls          # resumes from disk
+    assert "user tasks done, skipping" in capsys.readouterr().out
+
+
+def test_results_dir_keeps_a_second_models_cells_apart(sandbox, monkeypatch):
+    tmp, _ = sandbox
+    argv = ["--langs", "en", "--defenses", "undefended", "--limit", "2", "--workers", "1",
+            "--model", "other-8b", "--results-dir", str(tmp / "other")]
+    assert run(argv, monkeypatch) == 0
+    assert (tmp / "other" / "grid" / "en__undefended__important_instructions.json").exists()
+    assert not (tmp / "grid" / "en__undefended__important_instructions.json").exists()
+
+
 def test_repair_keeps_successful_results_untouched(sandbox, monkeypatch):
     """Only lost ids run again; a kept result is not replayed or rewritten."""
     _cell(grid.cell_path("en", "undefended", "important_instructions"), "en", "undefended",

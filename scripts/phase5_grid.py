@@ -171,8 +171,13 @@ def cell_path(lang: str, defense: str, attack: str, localized: bool = False) -> 
     return OUT / f"{lang}__{defense}__{attack}{loc}.json"
 
 
-def clean_path(defense: str, lang: str = "en", localized: bool = False) -> Path:
-    """English-environment clean passes are language-free; localized ones are not."""
+def clean_path(defense: str, lang: str = "en", localized: bool = False, usertask: bool = False) -> Path:
+    """English-environment clean passes are language-free; localized ones are not.
+
+    `usertask`: the user's instruction itself is in `lang` (H5, corpus.user_tasks).
+    """
+    if usertask and lang != "en":
+        return OUT / f"clean__{defense}__{lang}__usertask.json"
     if localized and lang != "en":
         return OUT / f"clean__{defense}__{lang}__locenv.json"
     return OUT / f"clean__{defense}.json"
@@ -196,8 +201,11 @@ def lost(f: Path, key: str) -> set[str]:
     return {r.case_id for r in load_cell(f, key) if needs_rerun(r)} if f.exists() else set()
 
 
-def cell_status(lang: str, defense: str, attack: str, localized: bool = False) -> str:
+def cell_status(lang: str, defense: str, attack: str, localized: bool = False, usertask: bool = False) -> str:
     """'done', 'missing', or 'repair' (on disk, but results lost to the server)."""
+    if usertask:  # utility only: there is no attack cell
+        cp = clean_path(defense, lang, localized, usertask=True)
+        return "missing" if not cp.exists() else "repair" if lost(cp, "clean") else "done"
     f, cp = cell_path(lang, defense, attack, localized), clean_path(defense, lang, localized)
     if not f.exists() or not cp.exists():
         return "missing"
@@ -245,6 +253,16 @@ def summarise_lang(lang: str, attack: str, defenses: list[str], localized: bool 
         print(f"{d:<20}{raw:>16}{_fmt(uasr(rs)):>16}{(_fmt(util) if util else '-'):>16}  {eff}")
 
 
+def summarise_usertask(lang: str, defenses: list[str]) -> None:
+    """H5 table: each defense's utility cost with `lang` user instructions vs English."""
+    from analysis import h5
+    from corpus.user_tasks import h5_tasks
+
+    h5.GRID = OUT
+    print()
+    print(h5.table(lang, defenses, h5_tasks(load_cases("en", False))))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--langs", nargs="+", default=["en"])
@@ -265,11 +283,22 @@ def main() -> int:
     ap.add_argument("--scorable-only", action="store_true",
                     help="defended cells run only the scorable set S(L) (needs a probe); "
                          "undefended always runs every case")
+    ap.add_argument("--localized-user-task", action="store_true",
+                    help="H5: the user's instruction in the language (corpus.user_tasks), clean pass only, "
+                         "on the language-fair tasks; English is the existing clean pass")
+    ap.add_argument("--results-dir", default=None,
+                    help="root for probes and grid (default analysis/out); a second model gets its own "
+                         "so its cells never read as the 14B's")
     ap.add_argument("--rerun", action="store_true")
     ap.add_argument("--summary-only", action="store_true")
     ap.add_argument("--status", action="store_true",
                     help="print '<lang> <defense> done|repair|missing' per cell and exit (no server needed)")
     args = ap.parse_args()
+    if args.results_dir:
+        global OUT, PROBES
+        PROBES = Path(args.results_dir)
+        OUT = PROBES / "grid"
+    usertask = args.localized_user_task
 
     from defenses.registry import DEFENSES, is_known
 
@@ -282,12 +311,13 @@ def main() -> int:
     if args.status:
         for lang in args.langs:
             for d in args.defenses:
-                print(f"{lang} {d} {cell_status(lang, d, args.attack, args.localized_env)}")
+                print(f"{lang} {d} {cell_status(lang, d, args.attack, args.localized_env, usertask)}")
         return 0
 
     if args.summary_only:
         for lang in args.langs:
-            summarise_lang(lang, args.attack, args.defenses, args.localized_env)
+            summarise_usertask(lang, args.defenses) if usertask else \
+                summarise_lang(lang, args.attack, args.defenses, args.localized_env)
         return 0
 
     from harness.local_client import DEFAULT_BASE_URL, DEFAULT_LOCAL_MODEL, OpenAICompatClient
@@ -299,7 +329,14 @@ def main() -> int:
     incomplete = 0
 
     for lang in args.langs:  # language-by-language: a partial grid is whole languages
+        if usertask and lang == "en":
+            print("[en] --localized-user-task: English is the existing clean pass, nothing to run")
+            continue
         cases = load_cases(lang, args.allow_unverified)
+        if usertask:
+            from corpus.user_tasks import localize_user_tasks
+
+            cases = localize_user_tasks(cases, lang, allow_unverified=args.allow_unverified)
         if args.limit:
             cases = cases[: args.limit]
         loc = args.localized_env and lang != "en"
@@ -322,22 +359,33 @@ def main() -> int:
 
             # A file on disk is kept, except results lost to the server: those run
             # again (successes are kept, not replayed) and are merged back in.
-            cp = clean_path(name, lang, loc)
+            cp = clean_path(name, lang, loc, usertask)
             old_clean = load_cell(cp, "clean") if cp.exists() and not args.rerun else []
             redo = lost(cp, "clean") if old_clean else set()
+            if old_clean and not redo and usertask:
+                print(f"[{lang}] {name}: {lang} user tasks done, skipping ({cp})")
             if not old_clean or redo:
                 todo = [c for c in cases if c.case_id in redo] if old_clean else cases
                 print(f"[clean] {name}: {len({user_task_key(c) for c in todo})} distinct user tasks "
                       f"for {len(todo)} cases{' (' + lang + ' environment)' if loc else ''}"
+                      f"{' (' + lang + ' user instructions)' if usertask else ''}"
                       f"{f' (repair: {len(redo)} lost to the server)' if old_clean else ''}")
-                with RunTrace(phase="phase5", lang=lang if loc else "en",
-                              defense=f"{name}-clean{'-locenv' if loc else ''}", model=client.model) as tr:
+                with RunTrace(phase="phase5", lang=lang if (loc or usertask) else "en",
+                              defense=f"{name}-clean{'-locenv' if loc else ''}{'-usertask' if usertask else ''}",
+                              model=client.model) as tr:
                     clean = run_clean_dedup(todo, defense, client, attack=args.attack,
                                             workers=args.workers, trace=tr, localized_env=loc)
                 cp.write_text(json.dumps({
                     "defense": name, "model": client.model, "clean_dedup_by_user_task": True,
                     "environment": f"localized:{lang}" if loc else "english (unlocalized)",
+                    "user_instructions": lang if usertask else "en",
+                    "unverified_corpus": args.allow_unverified,
                     "clean": [r.model_dump() for r in merge(old_clean, clean)]}, indent=1), encoding="utf-8")
+            if usertask:  # utility only: no attack cell
+                if lost(cp, "clean"):
+                    incomplete += 1
+                    print(f"[{lang}] {name}: {len(lost(cp, 'clean'))} results lost to the server -- NOT done")
+                continue
 
             f = cell_path(lang, name, args.attack, loc)
             old = load_cell(f) if f.exists() and not args.rerun else []
@@ -382,7 +430,7 @@ def main() -> int:
                 print(f"[{lang}] {name}: {still} results lost to the server -- NOT done; "
                       "a re-run repairs only those")
 
-        summarise_lang(lang, args.attack, args.defenses, loc)
+        summarise_usertask(lang, args.defenses) if usertask else summarise_lang(lang, args.attack, args.defenses, loc)
     # 3 = the server failed under us: the notebook restarts vLLM and retries the step.
     return 3 if incomplete else 0
 
