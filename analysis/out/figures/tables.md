@@ -4,30 +4,30 @@
 
 | Language | C(L), cases | C(L), goals | corpus |
 |---|---|---|---|
-| English | 55.6% [47, 64] (79/142) | 64.7% (22/34) | verified |
-| Hindi | 26.7% [20, 34] (40/150) | 31.4% (11/35) | verified |
-| Hindi (Latin) | 39.3% [32, 47] (59/150) | 40.0% (14/35) | draft |
+| English | 54.1% [46, 62] (79/146) | 64.7% (22/34) | verified |
+| Hindi | 26.7% [20, 34] (40/150) | 31.4% (11/35) | draft |
+| Hindi (Latin) | 34.7% [28, 43] (52/150) | 34.3% (12/35) | draft |
 | Bengali | 42.0% [34, 50] (63/150) | 42.9% (15/35) | draft |
-| Code-mixed | 38.7% [31, 47] (58/150) | 37.1% (13/35) | draft |
+| Code-mixed | 44.9% [37, 53] (66/147) | 50.0% (17/34) | draft |
 
 **protectai_deberta** -- held-out split, target FPR 5%. Shipped = English threshold; calibrated = per-language threshold at the same target FPR; matched = threshold giving English-level detection.
 
 | Language | AUC | shipped FPR | shipped TPR | calibrated FPR | calibrated TPR | matched FPR | adv-benign FPR (shipped) | p50 ms |
 |---|---|---|---|---|---|---|---|---|
-| English | 0.774 | 0.0% | 0.0% | 0.0% | 0.0% | 10.1% | 0.0% | 262 |
-| Hindi\* | 0.451 | 0.0% | 0.0% | 1.4% | 0.0% | 7.2% | 0.0% | 505 |
-| Hindi (Latin)\* | 0.745 | 0.0% | 0.0% | 1.4% | 0.0% | 7.2% | 0.0% | 391 |
-| Bengali\* | 0.427 | 0.0% | 0.0% | 1.4% | 0.0% | 2.9% | 0.0% | 580 |
-| Code-mixed\* | 0.727 | 0.0% | 1.1% | 0.0% | 0.0% | 13.0% | 0.0% | 246 |
+| English | 0.731 | 2.0% | 2.2% | 2.0% | 2.2% | 8.6% | 3.3% | 242 |
+| Hindi | 0.454 | 1.3% | 0.0% | 4.0% | 2.2% | 5.3% | 3.3% | 532 |
+| Hindi (Latin)\* | 0.708 | 0.7% | 0.0% | 1.3% | 2.2% | 4.6% | 1.6% | 371 |
+| Bengali\* | 0.392 | 0.7% | 0.0% | 2.6% | 2.2% | 2.0% | 1.6% | 702 |
+| Code-mixed\* | 0.697 | 6.0% | 3.3% | 0.0% | 1.1% | 11.3% | 13.1% | 327 |
 
 Adaptive rewrites, TPR at the calibrated threshold (protectai_deberta):
 
 | Language | homoglyph | script_mix | translit | zero_width |
 |---|---|---|---|---|
-| English | 0.0% | n/a | n/a | 0.0% |
-| Hindi | 0.0% | 0.0% | 0.0% | 0.0% |
-| Hindi (Latin) | 5.5% | n/a | n/a | 33.0% |
-| Bengali | 0.0% | 2.2% | 5.5% | 7.7% |
+| English | 4.4% | n/a | n/a | 35.2% |
+| Hindi | 2.2% | 2.2% | 3.3% | 19.8% |
+| Hindi (Latin) | 8.8% | n/a | n/a | 47.3% |
+| Bengali | 9.9% | 7.7% | 24.2% | 22.0% |
 | Code-mixed | 0.0% | n/a | n/a | 0.0% |
 
 \* unverified machine-drafted corpus -- pilot, not a result.
@@ -36,15 +36,21 @@ Adaptive rewrites, TPR at the calibrated threshold (protectai_deberta):
 
 | Language | AUC | shipped FPR | shipped TPR | calibrated FPR | calibrated TPR | matched FPR | adv-benign FPR (shipped) | p50 ms |
 |---|---|---|---|---|---|---|---|---|
-| English | 0.774 | 0.0% | 0.0% | 0.0% | 0.0% | 10.1% | 0.0% | 240 |
-| Hindi\* | 0.692 | 0.0% | 0.0% | 1.4% | 0.0% | 2.9% | 0.0% | 311 |
+| English | 0.731 | 2.0% | 2.2% | 2.0% | 2.2% | 8.6% | 3.3% | 329 |
+| Hindi | 0.607 | 0.7% | 0.0% | 6.0% | 4.4% | 2.6% | 1.6% | 473 |
+| Hindi (Latin)\* | 0.708 | 0.7% | 0.0% | 1.3% | 2.2% | 4.6% | 1.6% | 421 |
+| Bengali\* | 0.759 | 0.7% | 0.0% | 4.6% | 9.9% | 2.6% | 1.6% | 459 |
+| Code-mixed\* | 0.697 | 6.0% | 3.3% | 0.0% | 1.1% | 11.3% | 13.1% | 282 |
 
 Adaptive rewrites, TPR at the calibrated threshold (translit+protectai_deberta):
 
 | Language | homoglyph | script_mix | translit | zero_width |
 |---|---|---|---|---|
-| English | 0.0% | n/a | n/a | 0.0% |
-| Hindi | 0.0% | 0.0% | 0.0% | 0.0% |
+| English | 2.2% | n/a | n/a | 2.2% |
+| Hindi | 4.4% | 4.4% | 4.4% | 4.4% |
+| Hindi (Latin) | 2.2% | n/a | n/a | 2.2% |
+| Bengali | 9.9% | 9.9% | 9.9% | 9.9% |
+| Code-mixed | 1.1% | n/a | n/a | 1.1% |
 
 \* unverified machine-drafted corpus -- pilot, not a result.
 
@@ -56,5 +62,19 @@ Adaptive rewrites, TPR at the calibrated threshold (translit+protectai_deberta):
 | Defense | ASR | uASR | gap | E | p | utility |
 |---|---|---|---|---|---|---|
 | undefended | 12.1% | 20.5% | 8.4% | -- | -- | 46.0% |
+| allowlist | 6.0% | 10.2% | 4.2% | +0.50 [+0.25, +0.73] | 0.00391 | 39.3% |
+| camel_lite | 5.4% | 9.1% | 3.7% | +0.56 [+0.31, +0.79] | 0.00195 | 34.0% |
+| honeytool | 8.7% | 13.6% | 5.0% | +0.33 [-0.08, +0.63] | 0.18 | 45.3% |
+| protectai_deberta | 5.3% | 9.1% | 3.8% | +0.56 [+0.26, +0.80] | 0.00635 | 22.7% |
 | sandwich | 4.0% | 6.8% | 2.8% | +0.67 [+0.36, +0.90] | 0.00418 | 49.7% |
+| spotlight | 6.0% | 10.2% | 4.2% | +0.50 [+0.20, +0.75] | 0.0117 | 46.0% |
+
+*Hindi*
+
+| Defense | ASR | uASR | gap | E | p | utility |
+|---|---|---|---|---|---|---|
+| undefended | 0.7% | 2.5% | 1.8% | -- | -- | 46.0% |
+| camel_lite | n/a (S only) | 0.0% | -- | +1.00 [+1.00, +1.00] | 1 | 34.0% |
+| protectai_deberta | n/a (S only) | 0.0% | -- | +1.00 [+1.00, +1.00] | 1 | 22.7% |
+| sandwich | n/a (S only) | 0.0% | -- | +1.00 [+1.00, +1.00] | 1 | 49.7% |
 
