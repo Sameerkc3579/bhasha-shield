@@ -10,15 +10,37 @@
 | Bengali | 42.0% [34, 50] (63/150) | 42.9% (15/35) | draft |
 | Code-mixed | 44.9% [37, 53] (66/147) | 50.0% (17/34) | draft |
 
+**promptguard2** -- held-out split, target FPR 5%. Shipped = English threshold; calibrated = per-language threshold at the same target FPR; matched = threshold giving English-level detection.
+
+| Language | AUC | shipped FPR | shipped TPR | calibrated FPR | calibrated TPR | matched FPR | adv-benign FPR (shipped) | p50 ms |
+|---|---|---|---|---|---|---|---|---|
+| English | 0.940 | 3.3% | 0.0% | 3.3% | 0.0% | 3.3% | 8.2% | 561 |
+| Hindi | 0.981 | 0.7% | 0.0% | 2.0% | 50.5% | 0.7% | 1.6% | 575 |
+| Hindi (Latin) | 0.992 | 0.0% | 0.0% | 0.7% | 79.1% | 0.7% | 0.0% | 537 |
+| Bengali\* | 0.991 | 0.7% | 0.0% | 0.7% | 13.2% | 0.7% | 1.6% | 566 |
+| Code-mixed | 0.956 | 0.7% | 0.0% | 1.3% | 2.2% | 1.3% | 1.6% | 685 |
+
+Adaptive rewrites, TPR at the calibrated threshold (promptguard2):
+
+| Language | homoglyph | script_mix | translit | zero_width |
+|---|---|---|---|---|
+| English | 19.8% | n/a | n/a | 0.0% |
+| Hindi | 47.3% | 56.0% | 28.6% | 50.5% |
+| Hindi (Latin) | 71.4% | n/a | n/a | 80.2% |
+| Bengali | 17.6% | 14.3% | 13.2% | 13.2% |
+| Code-mixed | 18.7% | n/a | n/a | 2.2% |
+
+\* unverified machine-drafted corpus -- pilot, not a result.
+
 **protectai_deberta** -- held-out split, target FPR 5%. Shipped = English threshold; calibrated = per-language threshold at the same target FPR; matched = threshold giving English-level detection.
 
 | Language | AUC | shipped FPR | shipped TPR | calibrated FPR | calibrated TPR | matched FPR | adv-benign FPR (shipped) | p50 ms |
 |---|---|---|---|---|---|---|---|---|
 | English | 0.731 | 2.0% | 2.2% | 2.0% | 2.2% | 8.6% | 3.3% | 242 |
-| Hindi | 0.454 | 1.3% | 0.0% | 4.0% | 2.2% | 5.3% | 3.3% | 532 |
-| Hindi (Latin)\* | 0.708 | 0.7% | 0.0% | 1.3% | 2.2% | 4.6% | 1.6% | 371 |
+| Hindi | 0.454 | 1.3% | 0.0% | 4.0% | 2.2% | 5.3% | 3.3% | 534 |
+| Hindi (Latin) | 0.708 | 0.7% | 0.0% | 1.3% | 2.2% | 4.6% | 1.6% | 371 |
 | Bengali\* | 0.392 | 0.7% | 0.0% | 2.6% | 2.2% | 2.0% | 1.6% | 702 |
-| Code-mixed\* | 0.697 | 6.0% | 3.3% | 0.0% | 1.1% | 11.3% | 13.1% | 327 |
+| Code-mixed | 0.697 | 6.0% | 3.3% | 0.0% | 1.1% | 11.3% | 13.1% | 327 |
 
 Adaptive rewrites, TPR at the calibrated threshold (protectai_deberta):
 
@@ -37,10 +59,10 @@ Adaptive rewrites, TPR at the calibrated threshold (protectai_deberta):
 | Language | AUC | shipped FPR | shipped TPR | calibrated FPR | calibrated TPR | matched FPR | adv-benign FPR (shipped) | p50 ms |
 |---|---|---|---|---|---|---|---|---|
 | English | 0.731 | 2.0% | 2.2% | 2.0% | 2.2% | 8.6% | 3.3% | 329 |
-| Hindi | 0.607 | 0.7% | 0.0% | 6.0% | 4.4% | 2.6% | 1.6% | 473 |
-| Hindi (Latin)\* | 0.708 | 0.7% | 0.0% | 1.3% | 2.2% | 4.6% | 1.6% | 421 |
+| Hindi | 0.607 | 0.7% | 0.0% | 6.0% | 4.4% | 2.6% | 1.6% | 475 |
+| Hindi (Latin) | 0.708 | 0.7% | 0.0% | 1.3% | 2.2% | 4.6% | 1.6% | 422 |
 | Bengali\* | 0.759 | 0.7% | 0.0% | 4.6% | 9.9% | 2.6% | 1.6% | 459 |
-| Code-mixed\* | 0.697 | 6.0% | 3.3% | 0.0% | 1.1% | 11.3% | 13.1% | 282 |
+| Code-mixed | 0.697 | 6.0% | 3.3% | 0.0% | 1.1% | 11.3% | 13.1% | 282 |
 
 Adaptive rewrites, TPR at the calibrated threshold (translit+protectai_deberta):
 
