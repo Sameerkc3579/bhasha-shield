@@ -1361,8 +1361,8 @@
     "translit": 0.03296703296703297,
     "zero_width": 0.1978021978021978
    },
-   "latency_ms_p50": 532.5,
-   "latency_ms_p95": 955.16,
+   "latency_ms_p50": 533.77,
+   "latency_ms_p95": 991.27,
    "roc_eval": [
     [
      1.000000001,
@@ -2643,8 +2643,8 @@
     "homoglyph": 0.08791208791208792,
     "zero_width": 0.4725274725274725
    },
-   "latency_ms_p50": 370.87,
-   "latency_ms_p95": 792.13,
+   "latency_ms_p50": 371.49,
+   "latency_ms_p95": 807.46,
    "roc_eval": [
     [
      1.000000001,
