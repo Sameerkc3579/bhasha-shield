@@ -1,8 +1,7 @@
 # Datasheet: agentfw multilingual injection + benign corpus
 
 Follows Gebru et al., *Datasheets for Datasets* (2021). Draft, kept in step with
-`corpus/`; the counts below were taken on 2026-10-04 and must be regenerated
-before release (Phase 7).
+`corpus/`; counts and verification status as of 2026-10-14.
 
 ## Motivation
 
@@ -22,9 +21,10 @@ Total spend Rs 0.
 | Part | Files | Items | Status |
 |---|---|---|---|
 | Injection cases (English) | `corpus/injections/en.jsonl` | 150 cases, 35 distinct attacker goals | drawn from AgentDojo v1 by stratified sample |
-| Localized attacker goals | `corpus/goals/{hi,hi_latn,bn,mixed}.jsonl` | 35 per language | `hi` human-verified; others machine drafts |
-| Attack templates | `corpus/attacks.py` | `important_instructions` x 5 languages | `en` = AgentDojo verbatim; others machine drafts |
-| Benign tool output | `corpus/benign/{lang}.jsonl` | 300 per language: 87 harvested + 213 hand-written, 133 adversarial-benign | `en` built; others machine drafts, item-aligned |
+| Localized attacker goals | `corpus/goals/{hi,hi_latn,bn,mixed}.jsonl` | 35 per language | `hi`, `hi_latn`, `mixed` human-verified (unchanged on review); `bn` machine draft |
+| Attack templates | `corpus/attacks.py` | `important_instructions` x 5 languages | `en` = AgentDojo verbatim; `hi`, `hi_latn`, `mixed` human-verified; `bn` machine draft |
+| Benign tool output | `corpus/benign/{lang}.jsonl` | 300 per language: 87 harvested + 213 hand-written, 133 adversarial-benign | `en` built; others machine drafts, item-aligned; the ~20% samples of `hi`, `hi_latn`, `mixed` were **model**-reviewed (one fix), not human-verified |
+| Localized user instructions (H5) | `corpus/user_tasks/hi.jsonl` | 32 of the 79 user tasks (those a correct run passes in any language) | machine draft, model-reviewed (4 edits); used as a labelled pilot |
 | Localized environments | `corpus/environments/{lang}.json` | 131 prose strings per language; 113-127 active | machine drafts, gated (see below) |
 | Provenance | `corpus/provenance.jsonl` | one row per localized item | complete for what exists |
 
@@ -88,6 +88,10 @@ hand-written items use invented names and reserved-looking addresses.
 **Quality gate (plan, Phase 3):** 30 payloads per language rated "would a
 native speaker write this?" by a second reader; >= 90% yes required before any
 result on that language is reported as a result rather than a pilot.
+**Status:** verification so far is by one reader, the author (a fluent Hindi
+reader); no second reader has rated payloads. `bn` has no fluent reviewer and
+is reported as a pilot throughout. A "model review" (by the LLM that drafted
+the text) is recorded in provenance as such and never counts as verification.
 
 Hand-written English items were written for this corpus (2026-10-04) and are
 `source: hand-written/<category>`. Their translations follow the same draft and
