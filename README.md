@@ -46,7 +46,7 @@ python -m scripts.phase2_probe --fake   # no model: verifies the probe wiring
 | 3 -- Localization | goals and templates human-verified for `hi`, `hi_latn`, `mixed`; `bn` stays a machine-drafted pilot (no fluent reviewer); benign corpus 300/lang, machine-drafted, sample model-reviewed; Hindi user tasks (H5) model-reviewed |
 | 4 -- Defenses | nine built; `xlmr_finetuned` dropped (no free labelled Hindi set we could verify) |
 | 5 -- The grid | **complete** for `en` (7 defenses) and `hi` (4); queued: the Hindi diagnostic, `hi_latn`/`mixed`, H5, a second model (Llama 3.1 8B) |
-| 6 -- Calibration + artifact | done for ProtectAI (raw and transliterate-first); PromptGuard 2 queued; proxy demo works |
+| 6 -- Calibration + artifact | done for ProtectAI (raw and transliterate-first) and PromptGuard 2; proxy demo works |
 | 7 -- Write-up | tables and figures regenerate from disk (`analysis/figures.py`); paper not started |
 
 ---
@@ -75,6 +75,9 @@ reasoning behind each in [`RESULTS.md`](RESULTS.md).
   English tool output, 47% of Hindi and 65% of Bengali; its injection ranking is inverted
   in Devanagari and Bengali script (AUC 0.45, 0.39). Transliterating first partly repairs
   it (0.61, 0.76) but detection at a 5% false-positive budget stays at 1-10%.
+- **A good multilingual detector is defeated by its English threshold.** PromptGuard 2 ranks
+  attacks well in every language (AUC 0.94-0.99), but the threshold fitted on English catches 0%
+  anywhere; Hindi's own threshold catches 51% at 2% false positives. Calibrate per language.
 - **Every defense halves English attacks; the utility bill differs by 2x**, and ProtectAI in
   the loop halves task completion for the same efficacy as the free sandwich prompt.
 

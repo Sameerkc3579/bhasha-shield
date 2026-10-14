@@ -1075,4 +1075,54 @@ VERIFICATION and skips it, so an early session cannot spend GPU time on unreview
 
 ---
 
+## 2026-10-15 — PromptGuard 2: it ranks well in every language; the English threshold is what fails
+
+Laptop CPU (`meta-llama/Llama-Prompt-Guard-2-86M`, gated, free HF token). Spend: **Rs 0**. Same
+benign corpus (300/lang) and attack files as ProtectAI; nothing else changed.
+
+**At its default threshold 0.5** (embedded payload; ordinary / adversarial-benign FPR):
+
+| | en | hi | hi_latn | bn* | mixed |
+|---|---|---|---|---|---|
+| TPR | 30% (45/150) | 7% (11/150) | 7% (10/150) | 1% (1/150) | 6% (9/150) |
+| FPR, ordinary | 1/167 | 0/167 | 1/167 | 0/167 | 0/167 |
+| FPR, adversarial-benign | 21/133 | 5/133 | 1/133 | 6/133 | 11/133 |
+
+The opposite failure to ProtectAI, which flags 47% (hi) and 65% (bn) of ordinary text: PromptGuard 2
+almost never fires off-English, on benign text or on attacks.
+
+**Calibration** (held-out split, target FPR 5%):
+
+| | AUC | shipped (English threshold 0.9944) TPR | own threshold: FPR / TPR |
+|---|---|---|---|
+| en | 0.94 | 0% | 3.3% / **0%** |
+| hi | **0.98** | 0% | 2.0% / **51%** |
+| hi_latn | **0.99** | 0% | 0.7% / **79%** |
+| bn* | 0.99 | 0% | 0.7% / 13% |
+| mixed | 0.96 | 0% | 1.3% / 2% |
+
+- **The ranking is good everywhere** (AUC 0.94-0.99), unlike ProtectAI's inverted 0.45/0.39 in Devanagari
+  and Bengali. The failure is the operating point: **the English-fit threshold detects nothing in any
+  language**, while Hindi's own threshold buys **51% detection at 2% FPR** and Romanized Hindi 79% at
+  0.7%. That is the plan's C5 claim -- an English-calibrated threshold is far from optimal off-English --
+  measured directly, on a detector built to be multilingual.
+- **English is the hard case here, not Hindi.** The English adversarial-benign items (security memos
+  quoting attacks, prompt-design docs) score above nearly every real attack, so a 5%-FPR threshold in
+  English sits above the attacks (0% TPR) despite AUC 0.94. The Hindi drafts of the same items score
+  low. Whether that holds for human-written Hindi is open: the non-English benign corpus is still
+  machine-drafted, so the Hindi FPR side is a pilot even where the attack side is verified.
+- `mixed` ranks well (0.96) but its own threshold still detects only 2%: its adversarial-benign items
+  are the ones that score highest (11/133 at 0.5).
+- The "matched" column of the calibration table is uninformative for PromptGuard 2: English-level
+  detection is 0%.
+
+**Bookkeeping.** The ProtectAI attack files for `hi_latn` and `mixed` were scored before the 10-14
+review and kept `unverified_corpus: true`; the review changed only `verified_by` fields (checked in
+git, commit 8272c12), so the flag is refreshed with a note, not re-scored. Only `bn` is starred now.
+The benign review fix of 10-14 (one item, hi/hi_latn) was re-scored; no table moved.
+
+\* unverified machine-drafted corpus: pilot.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
