@@ -118,9 +118,9 @@ TEMPLATE_STATUS: dict[str, dict[str, str | None]] = {
     "en": {"method": "source", "verified_by": "AgentDojo"},
     # Verified unchanged, read side by side with the English (2026-10-07; provenance.jsonl).
     "hi": {"method": "machine", "verified_by": "Sameer Choudhary"},
-    "hi_latn": {"method": "transliterated", "verified_by": None},
+    "hi_latn": {"method": "transliterated", "verified_by": "Sameer Choudhary"},  # verified unchanged, 2026-10-14
     "bn": {"method": "machine", "verified_by": None},
-    "mixed": {"method": "machine", "verified_by": None},
+    "mixed": {"method": "machine", "verified_by": "Sameer Choudhary"},  # verified unchanged, 2026-10-14
 }
 
 
