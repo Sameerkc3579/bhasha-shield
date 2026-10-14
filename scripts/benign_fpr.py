@@ -17,6 +17,7 @@ reason the corpus has it.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -33,6 +34,10 @@ def load(lang: str) -> list[BenignItem]:
     return [BenignItem.model_validate_json(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
+def content_sha(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
 def score_items(defense, items: list[BenignItem]) -> list[dict]:
     from corpus.schema import ToolOutput
     from defenses.base import RunContext
@@ -42,8 +47,15 @@ def score_items(defense, items: list[BenignItem]) -> list[dict]:
         ctx = RunContext(case_id=it.item_id, lang=it.lang, model="none", user_task="")
         v = defense.inspect(ToolOutput(tool_name=it.tool_name, content=it.content, lang=it.lang), ctx)
         out.append({"item_id": it.item_id, "adversarial_benign": it.adversarial_benign,
-                    "score": v.score, "latency_ms": round(v.latency_ms, 2)})
+                    "score": v.score, "latency_ms": round(v.latency_ms, 2), "sha": content_sha(it.content)})
     return out
+
+
+def stale(row: dict, item: BenignItem) -> bool:
+    """A score of different text. Rows written before 2026-10-14 carry no hash; they
+    were scored from the text as it then stood, and an edit since then deletes the
+    row (see RESULTS.md), so a missing hash is trusted."""
+    return "sha" in row and row["sha"] != content_sha(item.content)
 
 
 def fpr(rows: list[dict], threshold: float, adversarial: bool | None = None) -> tuple[int, int]:
@@ -77,10 +89,12 @@ def main() -> int:
             items = load(lang)
             old = json.loads(f.read_text(encoding="utf-8")) if f.exists() and not args.rerun else None
             have = {r["item_id"]: r for r in old["scores"]} if old else {}
-            todo = [it for it in items if it.item_id not in have]
+            todo = [it for it in items if it.item_id not in have or stale(have[it.item_id], it)]
             if todo:
                 # Incremental: when the corpus grows, score only the new items. A
-                # classifier score depends on the item alone, so old rows stay valid.
+                # classifier score depends on the item alone, so old rows stay valid --
+                # unless the item's text was edited since (2026-10-14: a review fix
+                # left the old score in place), which the content hash catches.
                 t0 = time.time()
                 have.update({r["item_id"]: r for r in score_items(defense, todo)})
                 f.write_text(json.dumps({"lang": lang, "defense": name, "model_id": getattr(defense, "model_id", ""),

@@ -148,3 +148,14 @@ def test_harvested_items_record_their_provenance():
 def test_corpus_serialises_roundtrip():
     for i in build()[:20]:
         assert BenignItem.model_validate_json(i.model_dump_json()).content == i.content
+
+
+def test_benign_fpr_rescores_an_item_whose_text_changed():
+    """2026-10-14: a review fix changed an item's text; incremental scoring by id kept the old score."""
+    from scripts.benign_fpr import content_sha, stale
+
+    item = BenignItem(item_id="x", lang="hi", tool_name="read_file", content="नई पंक्ति",
+                      adversarial_benign=True, source="t")
+    assert stale({"item_id": "x", "sha": content_sha("पुरानी पंक्ति")}, item)
+    assert not stale({"item_id": "x", "sha": content_sha("नई पंक्ति")}, item)
+    assert not stale({"item_id": "x"}, item)          # rows from before hashes are trusted
