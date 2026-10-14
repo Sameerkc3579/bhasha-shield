@@ -2582,7 +2582,7 @@
    ]
   },
   "hi_latn": {
-   "unverified_corpus": true,
+   "unverified_corpus": false,
    "auc": 0.7083909468015428,
    "shipped": {
     "threshold": 0.999995,
@@ -5128,7 +5128,7 @@
    ]
   },
   "mixed": {
-   "unverified_corpus": true,
+   "unverified_corpus": false,
    "auc": 0.6965286369259879,
    "shipped": {
     "threshold": 0.999995,
