@@ -1,4 +1,4 @@
-# R4 — Implementation Plan
+# bhasha-shield — Implementation Plan
 
 **Companion to:** `plan.md` (the why, the gap, the claims)
 **This file:** the build order, the code, the eval harness, the week-by-week.
@@ -248,7 +248,7 @@ Build all eight behind the `Defense` protocol. Each one ships with a test provin
 2. Paper skeleton, in this order: the confound → the metric → the corpus → the grid → the calibration fix.
 3. **Limitations section, written generously.** Name: single benchmark family, one primary model, bounded adaptive attacker, machine-translation residue, `camel_lite` is not CaMeL. Reviewers forgive stated limitations and punish hidden ones.
 4. Release corpus + harness under a permissive licence with a datasheet. The artifact is the half that gets cited.
-5. README with the resume line from `plan.md` §8 at the top.
+5. README with the headline result at the top.
 
 ---
 
@@ -284,6 +284,5 @@ Never drop: the capability probe (Phase 2), the benign corpus (C4), or the human
 ## Standing rules
 
 - **Re-run the arXiv search at the start of every phase.** This area produced AgentShield, MIPIAD, IndicGuard, AutoDojo and LivePI inside twelve months. A competitor appearing at week 6 changes your framing, not your code — but only if you notice.
-- **Append to `RESULTS.md` every week, with the date, including weeks where the number got worse.** This is the file you read from in an interview.
-- **One project at a time** (parent file, § *Choosing*). Nothing else starts until Week 9 ships.
+- **Append to `RESULTS.md` every week, with the date, including weeks where the number got worse.**
 - **Never report a number you cannot regenerate from a trace.**

@@ -1,20 +1,19 @@
-# R4 — Project Plan
+# bhasha-shield — Project Plan
 
 **Working title:** *Does Your Agent Firewall Speak Hindi? A utility-normalized cross-lingual audit of prompt-injection defenses for tool-using agents.*
 
 **Created:** 2026-09-16
-**Parent doc:** `LLM-Projects-Resume-and-Research.md` → R4 (resume) / S10 (research) bridge entry
-**Status:** planned, not started
+**Status:** the original plan, kept as written. Measured results, including where the plan did not hold, are in [`RESULTS.md`](../RESULTS.md).
 
 ---
 
-## 0. The honest verdict on R4 as written
+## 0. Prior art
 
-R4 in the parent file says: *build injection-detection middleware, build an adversarial corpus, compare architectural vs classifier defenses.*
+The starting idea was: *build injection-detection middleware, build an adversarial corpus, compare architectural vs classifier defenses.*
 
 **All three are now saturated.** Prior-art checking (2026-09-16) finds:
 
-| R4 component | Already done by |
+| Component | Already done by |
 |---|---|
 | Firewall / sanitizing middleware | CommandSans, AgentWatcher, LlamaFirewall, Sentra-Guard |
 | Adversarial corpus / benchmark | BIPIA, InjecAgent, AgentDojo, ASB, WASP, LivePI, PIArena |
@@ -27,7 +26,7 @@ R4 in the parent file says: *build injection-detection middleware, build an adve
 
 The obvious "novel" pivot — *multilingual injection defense* — is also taken. **AgentShield (arXiv 2605.11026)** already evaluated AgentDojo across English / Kurdish / Arabic / code-switched and already reported the headline that classifier detectors (ProtectAI DeBERTa, Meta Prompt-Guard-2) collapse off-English while behavior-based defense stays language-agnostic.
 
-Building R4 as specified produces a competent project with no claim attached to it. The plan below keeps the *artifact* and replaces the *question*.
+Building that as specified produces a competent project with no claim attached to it. The plan below keeps the *artifact* and replaces the *question*.
 
 ---
 
@@ -47,7 +46,7 @@ Every paper in the table above reports **attack success rate**. Almost none repo
 
 **The thesis:** *Multilingual agent-security results are measured wrong. Once you normalize for what the agent can actually do in each language and report the false-positive cost, the ranking of defenses changes, and "language-agnostic" defenses turn out to be language-agnostic in ASR but not in usability.*
 
-A null result — "normalization changes nothing, thresholds transfer fine" — is still publishable, because it retroactively validates a literature that currently has no right to assume it. That is the property the parent file demands (§ *Before committing*, rule 2).
+A null result — "normalization changes nothing, thresholds transfer fine" — is still publishable, because it retroactively validates a literature that currently has no right to assume it.
 
 ---
 
@@ -68,7 +67,7 @@ Defense efficacy    E(L,D)  = 1 − uASR(L,D) / uASR_undefended(L)
 Report `E` and `uASR` alongside raw ASR. The claim under test: **the gap between raw ASR and uASR grows as language resource level falls.**
 
 **C3 — A localized multilingual agent-security suite.**
-AgentDojo-derived, but *localized* rather than translated — MAPS's stated limitation is that it kept English environments and translated only the inputs. Localizing the environment (names, emails, currency, dates, addresses, document bodies) is the part a solo student in India can do better than a lab, and it is the data moat the parent file says to look for.
+AgentDojo-derived, but *localized* rather than translated — MAPS's stated limitation is that it kept English environments and translated only the inputs. Localizing the environment (names, emails, currency, dates, addresses, document bodies) is the part a solo student in India can do better than a lab.
 
 **C4 — A matched benign corpus per language.**
 The FPR denominator nobody built. Benign tool outputs — real-shaped emails, web pages, documents, tool responses — in each language condition.
@@ -80,7 +79,7 @@ Per-language threshold calibration plus a script-normalization pre-pass, with th
 
 ## 3. Language conditions
 
-Five conditions, chosen so that *script* and *language* can be separated — the same ablation trick S1 in the parent file uses:
+Five conditions, chosen so that *script* and *language* can be separated — a standard script-vs-language ablation:
 
 | ID | Condition | Purpose |
 |---|---|---|
@@ -162,23 +161,23 @@ The headline figure is the frontier plot with five curves that do not lie on top
 
 **R2 — AgentDojo churn.** The upstream benchmark moves. *Mitigation:* pin a commit, vendor the subset, record the SHA in the repo.
 
-**R3 — Scope.** This is an 8–10 week project, not R4's 5–7. *Mitigation:* the de-scoping ladder in the implementation plan — drop `bn`, then `mixed`, then Class B, in that order. The `en` / `hi` / `hi-latn` trio alone still supports the paper.
+**R3 — Scope.** This is an 8–10 week project, not the 5–7 first estimated. *Mitigation:* the de-scoping ladder in the implementation plan — drop `bn`, then `mixed`, then Class B, in that order. The `en` / `hi` / `hi-latn` trio alone still supports the paper.
 
 **R4 — Someone publishes this first.** The area moves in weeks. *Mitigation:* the capability-ceiling protocol (C1/C2) is the durable contribution; even if the empirical numbers get scooped, a metric correction that invalidates prior numbers survives. Re-run the arXiv search at the start of every phase.
 
-**R5 — Framing collision with rejected ideas.** Your notes reject *MCP safety gateway / MCP provenance / MCP trust scoring* as crowded. This project ships middleware that can sit on an MCP transport, and that is fine — but **do not frame it as an MCP gateway.** MCP is a deployment detail in one paragraph of the README. The claim is about cross-lingual measurement, not about MCP.
+**R5 — Framing.** MCP safety gateways, provenance and trust scoring are already crowded. This project ships middleware that can sit on an MCP transport, and that is fine — but **do not frame it as an MCP gateway.** MCP is a deployment detail in one paragraph of the README. The claim is about cross-lingual measurement, not about MCP.
 
 ---
 
 ## 8. Output shape
 
-**Resume face.** Deployed firewall middleware with a real frontier behind it.
+**Engineering face.** Deployed firewall middleware with a real frontier behind it. Target headline, written before any experiment (it did not hold; see `RESULTS.md`, 2026-10-13 (plan)):
 > *"Cross-lingual injection firewall: per-language calibration cut false-positive rate on benign Hindi tool output from 34% to 4% at equal attack-success reduction; audited 8 defenses across 5 language conditions over 7.5k agent runs."*
 
 **Research face.** Workshop paper.
-> *"Utility-normalized cross-lingual evaluation of prompt-injection defenses"* — venue: an ACL/EMNLP security or multilingual workshop, or a NeurIPS/ICLR safety workshop. The benchmark + metric artifact outlives the paper, which is the property S3 in the parent file identifies as what labs actually cite.
+> *"Utility-normalized cross-lingual evaluation of prompt-injection defenses"* — venue: an ACL/EMNLP security or multilingual workshop, or a NeurIPS/ICLR safety workshop. The benchmark + metric artifact outlives the paper.
 
-**Both faces come from one codebase.** That is the bridge property R4 was selected for in the first place.
+**Both faces come from one codebase.**
 
 ---
 
@@ -191,7 +190,7 @@ Stop and re-plan if, by end of Phase 2:
 
 ---
 
-## 10. Pre-commitment (parent file § *Before committing*)
+## 10. Pre-commitment
 
 - [x] **arXiv/GitHub searched.** Near-misses found and catalogued in §0. Re-check each phase.
 - [x] **Abstract written both ways.** Positive: *"raw ASR overstates multilingual defense efficacy by N points."* Null: *"utility normalization does not change defense ranking, so existing multilingual security numbers can be trusted — here is the evidence they previously lacked."* Both are worth reading.

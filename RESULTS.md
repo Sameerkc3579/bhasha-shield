@@ -1,7 +1,7 @@
 # RESULTS
 
 Append-only. Every week gets an entry, **including weeks where the number got
-worse or nothing worked**. This is the file to read from in an interview.
+worse or nothing worked**.
 
 Rule: no number appears here that cannot be regenerated from a trace in
 `traces/`.
@@ -1039,8 +1039,8 @@ samples; PromptGuard 2 (needs an HF token). No GPU work is pending.
 
 Measured against `docs/plan.md`, seven things fell short: the Hindi grid has no power (1 success
 in 40); utility is not measured per language, so H5 is untested; one model; the grid covers 2 of 5
-languages; human review of the non-English corpus is not done; the planned resume claim does not
-hold; no paper. The completion plan, built before any GPU time so the notebook is uploaded once:
+languages; human review of the non-English corpus is not done; the planned headline claim (plan.md §8)
+does not hold; no paper. The completion plan, built before any GPU time so the notebook is uploaded once:
 
 - **Hindi power cannot be bought with more Hindi cases** (all 629 AgentDojo cases would give ~4
   successes at 0.025). Instead: (a) a diagnostic, `important_instructions_enframe` -- AgentDojo's
