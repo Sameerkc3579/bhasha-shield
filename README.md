@@ -185,3 +185,10 @@ anything already computed. The `--backend anthropic` path in the older scripts i
 so Phase 0 traces stay comparable; nothing in the plan uses it. The second model (Llama 3.1
 8B Instruct, AWQ) is another open-weight model on the same free hardware, not a hosted API;
 it needs only a free Hugging Face token, because Meta gates the weights.
+
+---
+
+## Licence
+
+Code: MIT ([`LICENSE`](LICENSE)). Corpus: CC BY 4.0 ([`corpus/LICENSE`](corpus/LICENSE)).
+Cases and environments derive from [AgentDojo](https://github.com/ethz-spylab/agentdojo) (MIT).

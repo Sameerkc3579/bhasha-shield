@@ -1,0 +1,19 @@
+The corpus in this directory is licensed under the Creative Commons Attribution
+4.0 International licence (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/legalcode
+
+Copyright (c) 2026 Sameer Choudhary
+
+Attribution: cite this repository (https://github.com/Sameerkc3579/bhasha-shield).
+
+Third-party material. The English injection cases, attack templates and benign
+items harvested from AgentDojo environments derive from AgentDojo, which is
+released under the MIT License:
+
+  Copyright (c) 2024 Edoardo Debenedetti, Jie Zhang, Mislav Balunovic,
+  Luca Beurer-Kellner, Marc Fischer, and Florian Tramèr
+
+That material remains available under its MIT terms; the MIT permission notice
+is reproduced in the top-level LICENSE file of this repository. Translations,
+localizations and hand-written items are covered by CC BY 4.0 as above. See
+DATASHEET.md for how each item was produced.

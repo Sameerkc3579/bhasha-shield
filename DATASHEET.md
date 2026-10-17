@@ -108,8 +108,8 @@ general (it is one register, typed by one person).
 
 ## Distribution and maintenance
 
-To be released with the harness after Phase 7. Licence intent: code MIT
-(matching AgentDojo, MIT, from which cases and environments derive); corpus
-CC BY 4.0. **Not yet chosen formally -- the author's decision.**
+Released with the harness. Licences: code MIT (`LICENSE`, matching AgentDojo, MIT,
+from which cases and environments derive); corpus CC BY 4.0 (`corpus/LICENSE`, which
+also carries AgentDojo's copyright notice for the derived items).
 
 Maintainer: the author. Errata go in `RESULTS.md` with a date, like everything else.
