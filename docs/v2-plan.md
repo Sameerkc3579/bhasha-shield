@@ -2,11 +2,18 @@
 
 Written 9 Nov 2026. Live version with diagrams: https://claude.ai/artifact/KcZpPVy4XLFLgTS5Nid1qS
 
-<!-- Target workshops and deadlines (fill in during Phase 0):
-     1.
-     2.
-     3.
--->
+**Target venue (chosen 9 Nov 2026): USENIX SAIS '27**, the Conference on Secure Agentic-AI Systems ([CFP](https://www.usenix.org/conference/sais27/call-for-papers)).
+
+| | |
+| --- | --- |
+| Paper deadline | **Thursday 4 Feb 2027, 23:59 AoE** (no separate abstract deadline) |
+| Notification / camera-ready | 16 Mar 2027 / 20 Apr 2027 |
+| Length | Main body up to **13 pages**; up to 30 pages in total with references and appendices |
+| Format | USENIX LaTeX template, US letter, two-column, 10-pt Times, 7" × 9" text block |
+| Review | **Double-blind.** No names or affiliations; prior work cited in the third person; artifact links must not reveal the authors |
+| Required | An **Open Science Appendix** (what the artifacts are and how to get them). Acceptance depends on public artifacts being available |
+| Preprints | Allowed, but don't time publicity to the review period (4 Feb – 16 Mar) |
+| Dual submission | Not allowed with a journal, or a conference or workshop **with proceedings**. A non-archival workshop is not covered by this rule |
 
 ## Goal and finish line
 
@@ -19,7 +26,7 @@ v2 turns bhasha-shield from "we measured the problem" into "we measured it **and
 | D1 | **Benchmark v2** | Two parts. (a) The existing agent-level benchmark (AgentDojo cases in each language), extended and frozen. (b) A new **classifier dataset**: tool-output snippets labelled *injection* or *benign*, in every language, including harmless text that looks like an instruction. | GitHub + Hugging Face Datasets |
 | D2 | **Guard model** | A small multilingual classifier that reads tool output and flags prompt injection. It is trained on D1(b) and must beat PromptGuard 2 and ProtectAI on Indian languages at low false-positive rates. | GitHub (code) + Hugging Face Hub (weights) |
 | D3 | **Agent-level proof** | The guard plugged into the agent harness as a defense, run on the full grid. This shows it cuts attack success without killing task completion. | `RESULTS.md` + paper tables |
-| D4 | **Paper** | A 4–8 page workshop paper, plus a public preprint. | arXiv + a workshop submission |
+| D4 | **Paper** | A full paper covering v1 and v2: up to 13 pages, USENIX two-column format, with an Open Science Appendix. | USENIX SAIS '27 (deadline 4 Feb 2027) + arXiv preprint |
 
 **v2 is done when all of these are true:**
 
@@ -27,7 +34,7 @@ v2 turns bhasha-shield from "we measured the problem" into "we measured it **and
 - [ ] The guard model's detection at 2% FPR beats the best baseline in **every** non-English language, with a 95% confidence interval that doesn't overlap the baseline's.
 - [ ] As an agent defense, the guard lowers utility-normalized attack success (uASR) with a significant paired test (McNemar p < 0.05). Task completion drops by no more than 5 points vs undefended.
 - [ ] Dataset and model are public on Hugging Face with cards. The GitHub release `v2.0` reproduces every number in the paper with one command per table.
-- [ ] The paper is submitted and the preprint is public.
+- [ ] The paper is submitted to USENIX SAIS '27 by 4 Feb 2027, 23:59 AoE, with anonymous artifact links.
 
 Only finished, reproducible numbers go on the resume. Until then, the v1 bullets stay as they are.
 
@@ -77,7 +84,7 @@ EVALUATE                     [Agent grid]                                       
                              uASR, utility, McNemar                                         |
                                    |                                                        |
                                    v                                                        v
-SHIP      [Release: Hugging Face dataset + model . ONNX firewall + Gradio Space . paper on arXiv]
+SHIP      [Release: Hugging Face dataset + model . ONNX firewall + Gradio Space . paper to USENIX SAIS '27]
 ```
 
 There are two data paths. Generated training data feeds the guard. The frozen, human-verified test set feeds only the thresholds (calibration half) and the final scores (test half). The leakage audit keeps the two paths apart. The calibrated guard is then tested twice: on its own as a classifier, and inside the agent as a defense. Everything that passes ships together.
@@ -103,7 +110,8 @@ Everything runs free: open-weight models, a free Colab or Kaggle T4 for GPU work
 | Deployment | existing `service/proxy.py`; **new** Gradio demo on a Hugging Face Space | A firewall people can run; a demo recruiters can click | Free CPU hosting |
 | Release | **new** Hugging Face Hub (dataset + model + Space), GitHub release `v2.0` | Public artifacts | Downloads become outside proof |
 | Quality gates | pytest, **new** GitHub Actions CI running the offline (`--fake`) tests | Nothing merges red | Cheap insurance |
-| Paper | LaTeX on Overleaf (ACL template), arXiv | The write-up | Standard for NLP workshops |
+| Paper | LaTeX on Overleaf (USENIX template, two-column, 10 pt), arXiv | The write-up | Required by SAIS |
+| Anonymous artifacts | **new** an anonymized repository mirror (e.g. Anonymous GitHub) and anonymous dataset/model links | Links in the submitted paper | SAIS review is double-blind |
 | Build tool | Claude Code | Writing code, tests, notebooks, analysis | See "Working with Claude Code" |
 
 ## Repository layout
@@ -168,7 +176,7 @@ There are seven phases, each ending in a **gate**: a check that must pass before
 4. Licence check, written to `docs/licences.md`: PromptGuard 2 (Llama licence), mDeBERTa, MuRIL, IndicBERT v2, IndicTrans2, ProtectAI, AgentDojo, and every source of benign text.
 5. Re-run the prior-art search (a v1 standing rule): has anyone released a multilingual or Indic prompt-injection guard since September? Note it in the plan appendix.
 6. Line up reviewers. Sameer covers hi, hi_latn and mixed. Ask classmates for one fluent reviewer each for Bengali, Marathi, Tamil or Telugu. **A language is in only if a reviewer says yes.**
-7. Pick 2–3 target workshops and write their deadlines at the top of this file.
+7. Target venue: done. USENIX SAIS '27 (deadline 4 Feb 2027); the rules that affect the plan are at the top of this file.
 
 **Gate G0:** `v1.0` is tagged, CI is green, the licence table is complete, and the language list is fixed.
 
@@ -242,37 +250,53 @@ The goal is a large, varied, labelled training set that **shares nothing** with 
 
 **Gate G5:** the Space is public and the latency table is in `RESULTS.md`.
 
-### Phase 6 — Release and paper (weeks 9–11)
+### Phase 6 — Release, finish the paper, submit to SAIS (weeks 9–13)
 
-1. Make the dataset and model public on Hugging Face with full cards: intended use, languages, licence, evaluation, limitations.
+Thirteen two-column pages is a lot of writing, so **the paper starts in week 3, not week 9.** The v1 half (threat model, related work, uASR, the capability probe, the v1 diagnosis) depends on nothing in v2. Draft it during Phases 2–3 (24 Nov – 21 Dec), when the GPU is busy anyway. Phase 6 then adds the v2 results to a paper that already exists.
+
+1. Make the dataset and model public on Hugging Face with full cards: intended use, languages, licence, evaluation, limitations. SAIS makes acceptance conditional on public artifacts.
 2. Publish GitHub release `v2.0`. The README gets one command per paper table.
-3. Write the paper:
-    - **Introduction:** the gap
-    - **Method:** uASR and the capability probe (v1)
-    - **Benchmark v2 and the training set**
-    - **The guard**
-    - **Results:** v1 diagnosis → classifier results → agent-level results → robustness
-    - **Limitations:** synthetic training data, one strong agent model, the language list
-    - **Ethics:** attack templates are dual-use; explain what you release and why
-4. Post the preprint on arXiv, submit to the workshop, then update the resume and post on LinkedIn.
+3. **Make anonymous copies for review:** an anonymized mirror of the repo (e.g. Anonymous GitHub) and anonymous dataset and model links. Check the PDF, its metadata and every link: none may show a name, the `Sameerkc3579` account or the institute.
+4. Finish the paper in the USENIX template: main body up to 13 pages, up to 30 in total.
+    - **Introduction:** the gap and the contributions
+    - **Background and threat model:** indirect injection through tool output; what the attacker controls
+    - **Related work:** including the prior art in the appendix of this file
+    - **Measuring attacks across languages (v1):** uASR, the capability probe, the benign corpus
+    - **Benchmark v2 and the training set:** construction, review, leakage audit
+    - **The guard:** models, training, per-language calibration
+    - **Experimental setup**
+    - **Results:**
+        - the v1 diagnosis
+        - classifier results against all baselines
+        - agent-level results
+        - robustness to adaptive attacks
+        - latency
+    - **Discussion and limitations:** synthetic training data, one strong agent model, the language list
+    - **Ethics:** attack templates are dual-use; what is released and why
+    - **Open Science Appendix (required):** each artifact, its anonymous link, and the command that reproduces each table
+5. Write about v1 in the third person ("prior work [X] showed…"), as double-blind review requires.
+6. Submit by **4 Feb 2027, 23:59 AoE**; aim to finish two days early. An arXiv preprint is allowed: post it just before 4 Feb or after 16 Mar, and keep it low-key during review.
 
-**Gate G6:** the preprint is public, the submission is confirmed, and v2.0 is tagged.
+**Gate G6:** the paper is submitted to SAIS, v2.0 is tagged, and the artifacts are public behind anonymous links.
+
+**After submission:** notification on 16 Mar 2027; if accepted, camera-ready by 20 Apr 2027, with real names and links restored.
 
 ## Timeline
 
-Eleven weeks from setup to preprint; the guard result (G3) is the turning point. Phases overlap; each phase ends at its gate.
+About 13 weeks from setup to the SAIS deadline on 4 Feb 2027; the guard result (G3) is the turning point. Phases overlap; each phase ends at its gate.
 
 | Phase | Weeks | Dates | Gate |
 | --- | --- | --- | --- |
 | P0 Set up, freeze v1 | 1 | 10 Nov – 12 Nov 2026 | G0 |
 | P1 Freeze test set | 1–2 | 10 Nov – 23 Nov 2026 | G1 |
 | P2 Training data | 2–4 | 17 Nov – 7 Dec 2026 | G2 |
+| Paper: draft the v1 sections | 3–6 | 24 Nov – 21 Dec 2026 | — |
 | **P3 Train the guard** | 4–6 | 1 Dec – 21 Dec 2026 | **G3** |
 | P4 Agent-level grid | 6–8 | 15 Dec 2026 – 4 Jan 2027 | G4 |
 | P5 Robustness, demo | 8–9 | 29 Dec 2026 – 11 Jan 2027 | G5 |
-| P6 Release, paper | 9–11 | 5 Jan – 25 Jan 2027 | G6 |
+| P6 Release, finish paper, submit | 9–13 | 5 Jan – **4 Feb 2027** | G6 |
 
-The schedule assumes about 15–20 hours a week alongside classes. The test set (P1) is frozen before any training data exists, and G3 decides whether the paper leads with a positive or a negative guard result. If exams or deadlines take a week, move every later phase right; don't overlap phases further. Using the cut order under "Risks and fallbacks" keeps the preprint date.
+The schedule assumes about 15–20 hours a week alongside classes. The test set (P1) is frozen before any training data exists, and G3 decides whether the paper leads with a positive or a negative guard result. **The 4 Feb deadline doesn't move.** If exams or deadlines take a week, move the later phases right into Phase 6's margin and use the cut order under "Risks and fallbacks". Never cut the paper.
 
 ## Evaluation and statistics rules
 
@@ -332,6 +356,8 @@ If a free quota runs out mid-phase, the fallback is waiting a week for the reset
 | Someone publishes a similar Indic guard | The prior-art search at the start of each phase | Position on what v1 has that others don't: uASR, per-language calibration, agent-level testing. Compare against them directly. |
 | Free GPU quota or sessions run out | Kaggle quota under 10 hours mid-week | The response cache and resumable notebooks; do CPU work while waiting; drop the weakest base-model candidate |
 | Exams, internship deadlines, and running out of time | Two phases slip by more than a week | Cut in this order: extra languages → Phase 5 Space polish → ablation (c) → the guard + sandwich combination. Never cut the test-set freeze or the paper. |
+| A 13-page paper doesn't fit in the last three weeks | The v1 sections aren't drafted by 21 Dec | Start writing in week 3 (see Phase 6); write the paper's results text as each gate passes, not at the end |
+| The submission reveals the authors (desk rejection) | Any link to `Sameerkc3579`, a named Hugging Face page, or names in the PDF metadata | Anonymous mirrors for every link; an anonymity check before submitting; v1 cited in the third person |
 | Releasing attack text is dual-use | — | Agent attack templates like these are already public in AgentDojo. Release with a clear intended-use statement and an ethics section. Don't release any goal that targets a real service. |
 
 ## Working with Claude Code
@@ -387,7 +413,8 @@ Claude Code writes the code, tests, notebooks and analysis. **Sameer** runs the 
 | 3 (GPU) | "Write guard/train.py and notebooks/guard_train_kaggle.ipynb: config-driven, 3 seeds, fp16, early stopping on validation PR-AUC, checkpoints to the Kaggle working directory, metrics to JSONL." |
 | 4 | "Add defenses/classifiers/bhasha_guard.py replacing the xlmr_finetuned stub, register it, test it with the fake model, then add the grid cells to grid_colab.ipynb for the defenses and attacks in Phase 4." |
 | 5 | "Export the winning guard to ONNX with int8 via Optimum, benchmark median and p95 CPU latency, make it the default in service/proxy.py, and build hf/space/app.py as a Gradio demo." |
-| 6 | "Using only numbers in RESULTS.md and analysis/out, draft the Hugging Face dataset and model cards, and generate every paper table with one command each. Flag any number you can't trace." |
+| 3–6 (paper) | "Set up paper/ with the USENIX LaTeX template. Draft the v1 sections (threat model, related work, uASR and the capability probe, the v1 diagnosis) from README.md, RESULTS.md and the appendix of docs/v2-plan.md only. Write v1 in the third person for double-blind review, and mark every number with the RESULTS.md entry it comes from." |
+| 6 | "Using only numbers in RESULTS.md and analysis/out, draft the Hugging Face dataset and model cards and the Open Science Appendix, and generate every paper table with one command each. Then run an anonymity check on the PDF, its metadata and every link. Flag any number you can't trace." |
 
 ## Release, paper and resume
 
@@ -399,9 +426,13 @@ Claude Code writes the code, tests, notebooks and analysis. **Sameer** runs the 
 | Training set + frozen test set, with dataset card | Hugging Face Datasets (private at G2, public at G6) | G2 → G6 |
 | Guard model (PyTorch + ONNX int8), with model card | Hugging Face Hub | After G3 |
 | Live demo | Hugging Face Space (Gradio, free CPU) | G5 |
-| Paper | arXiv preprint + a workshop submission | G6 |
+| Paper | USENIX SAIS '27 submission (by 4 Feb 2027); arXiv preprint just before 4 Feb or after 16 Mar | G6 |
+| Anonymous review copies | Anonymized repo mirror + anonymous dataset/model links | G6 |
 
-**Where to submit:** workshops on multilingual or Indic NLP, trustworthy and safe NLP, or LLM agent security. These usually sit alongside ACL, EMNLP, NAACL, NeurIPS or ICLR. Check the current calls in Phase 0 and pick the nearest one whose deadline is after week 11.
+**Where to submit: USENIX SAIS '27.** It's archival, it takes full 13-page papers, and its topics list prompt injection and "attacks exploiting untrusted inputs or tool outputs" by name.
+
+- **Backup:** the Verifiable Agent Safety workshop at ICLR 2027 (paper due 1 Feb) is non-archival, so SAIS's dual-submission rule doesn't forbid it. But it needs a separate 5–9 page version three days before the SAIS deadline, and on 9 Nov its page still called its dates tentative. Skip it unless it's confirmed and SAIS is already finished.
+- **If SAIS rejects** (16 Mar): revise using the reviews and aim for the ACL or NAACL 2027 workshops, whose calls come out in spring.
 
 **Resume bullets to aim for.** Fill in the X's only with real numbers from `RESULTS.md`. Each bullet goes on the resume as soon as its gate passes, even before the paper:
 
@@ -409,11 +440,15 @@ Claude Code writes the code, tests, notebooks and analysis. **Sameer** runs the 
 - After G3: "Trained a multilingual injection guard that catches **X%** of Hindi attacks at 2% FPR vs **51%** for calibrated PromptGuard 2 (95% CI, 3 seeds)"
 - After G4: "As an agent defense, the guard cut Hindi attack success from X% to Y% (McNemar p = Z) with under 5 points of task-completion loss"
 - After G5: "Shipped it as an ONNX firewall at X ms per check on CPU, with a live demo on Hugging Face Spaces"
-- After G6: "First-author paper submitted to [workshop]; preprint on arXiv"
+- After G6: "First-author paper under review at USENIX SAIS '27" (after 16 Mar, "accepted at" if it is)
 
 When these are in, the bhasha-shield entry gets the strongest 3–4 of them and drops the weakest v1 bullets, so the resume stays one page.
 
-**Tell people about it:** a LinkedIn post at G3 (the result) and at G6 (the release). Tag the PromptGuard and ProtectAI teams politely with the comparison. Cold-email Indian AI labs and startups with the Space link.
+**Tell people about it:**
+
+- A LinkedIn post at G3 (the result, in December, before review starts). Tag the PromptGuard and ProtectAI teams politely with the comparison.
+- The big release post goes out just before 4 Feb or after 16 Mar. SAIS asks authors not to time publicity to the review period.
+- Cold-email Indian AI labs and startups with the Space link at any time; that's job hunting, not publicity aimed at reviewers.
 
 ## Appendix: prior-art search and venues (Phase 0, 9 Nov 2026)
 
@@ -444,8 +479,8 @@ measures false positives on adversarial-benign tool output.
 3. If the Scientific Reports dataset is public, it is a ready out-of-domain test for the guard (direct
    prompts): report it separately, never mix it into the frozen test set.
 
-**Venues with a deadline after week 11 (25 Jan 2027)** — the choice is Sameer's; write the picks at the
-top of this file:
+**Venues with a deadline after week 11 (25 Jan 2027).** Chosen on 9 Nov 2026: **USENIX SAIS '27**. Its rules
+are at the top of this file; the other rows are kept for reference.
 
 | Venue | Deadline | Format | Fit |
 |---|---|---|---|
