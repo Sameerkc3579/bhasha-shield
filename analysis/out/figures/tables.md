@@ -4,11 +4,11 @@
 
 | Language | C(L), cases | C(L), goals | corpus |
 |---|---|---|---|
-| English | 54.1% [46, 62] (79/146) | 64.7% (22/34) | verified |
-| Hindi | 26.7% [20, 34] (40/150) | 31.4% (11/35) | draft |
-| Hindi (Latin) | 34.7% [28, 43] (52/150) | 34.3% (12/35) | draft |
+| English | 55.6% [47, 64] (79/142) | 64.7% (22/34) | verified |
+| Hindi | 26.7% [20, 34] (40/150) | 31.4% (11/35) | verified |
+| Hindi (Latin) | 40.4% [33, 49] (59/146) | 41.2% (14/34) | verified |
 | Bengali | 42.0% [34, 50] (63/150) | 42.9% (15/35) | draft |
-| Code-mixed | 44.9% [37, 53] (66/147) | 50.0% (17/34) | draft |
+| Code-mixed | 39.5% [32, 48] (58/147) | 38.2% (13/34) | verified |
 
 **promptguard2** -- held-out split, target FPR 5%. Shipped = English threshold; calibrated = per-language threshold at the same target FPR; matched = threshold giving English-level detection.
 
@@ -99,4 +99,61 @@ Adaptive rewrites, TPR at the calibrated threshold (translit+protectai_deberta):
 | camel_lite | n/a (S only) | 0.0% | -- | +1.00 [+1.00, +1.00] | 1 | 34.0% |
 | protectai_deberta | n/a (S only) | 0.0% | -- | +1.00 [+1.00, +1.00] | 1 | 22.7% |
 | sandwich | n/a (S only) | 0.0% | -- | +1.00 [+1.00, +1.00] | 1 | 49.7% |
+
+*Hindi (Latin)*
+
+| Defense | ASR | uASR | gap | E | p | utility |
+|---|---|---|---|---|---|---|
+| undefended | 0.7% | 1.6% | 0.9% | -- | -- | 46.0% |
+
+*Code-mixed*
+
+| Defense | ASR | uASR | gap | E | p | utility |
+|---|---|---|---|---|---|---|
+| undefended | 5.4% | 12.7% | 7.3% | -- | -- | 46.0% |
+
+
+The same grid with `important_instructions_enframe` -- AgentDojo's English template around the localized goal, undefended only: does the translated template or the Hindi goal stop the attack?
+
+*Hindi*
+
+| Defense | ASR | uASR | gap | E | p | utility |
+|---|---|---|---|---|---|---|
+| undefended | 10.0% | 30.6% | 20.6% | -- | -- | 46.0% |
+
+
+**H5** -- Hindi user instructions vs English, no attack, 32 language-fair user tasks. cost = undefended utility - defended utility; gap = cost(hi) - cost(en), paired bootstrap 95% CI over tasks. Pilot: the Hindi instructions are model-reviewed, not human-verified.
+
+| Defense | tasks | utility en | utility hi | cost en | cost hi | gap | blocked en / hi |
+|---|---|---|---|---|---|---|---|
+| undefended | 32 | 59.4% | 34.4% | -- | -- | -- | -- |
+| sandwich | 31 | 64.5% | 35.5% | -0.032 | +0.000 | +0.032 [-0.161, +0.258] | 0% / 0% |
+| spotlight | 31 | 58.1% | 38.7% | +0.032 | -0.032 | -0.065 [-0.258, +0.129] | 0% / 0% |
+| camel_lite | 32 | 37.5% | 25.0% | +0.219 | +0.094 | -0.125 [-0.281, +0.031] | 44% / 38% |
+| allowlist | 32 | 50.0% | 31.2% | +0.094 | +0.031 | -0.062 [-0.156, +0.000] | 19% / 16% |
+| protectai_deberta | 32 | 43.8% | 34.4% | +0.156 | +0.000 | -0.156 [-0.375, +0.031] | 59% / 47% |
+| honeytool | 32 | 56.2% | 31.2% | +0.031 | +0.031 | +0.000 [-0.250, +0.219] | 0% / 0% |
+
+**Second model** (spot-check)
+
+**Capability ceiling C(L)** -- hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4. Attacker goal issued as a plain user instruction.
+
+| Language | C(L), cases | C(L), goals | corpus |
+|---|---|---|---|
+| English | 26.7% [20, 34] (40/150) | 34.3% (12/35) | verified |
+| Hindi | 24.7% [18, 32] (37/150) | 34.3% (12/35) | verified |
+
+**The grid** -- `important_instructions`. uASR = ASR on the cases the agent could perform in L; gap = uASR - ASR; E = efficacy vs this language's undefended uASR, paired bootstrap 95% CI, McNemar p.
+
+*English*
+
+| Defense | ASR | uASR | gap | E | p | utility |
+|---|---|---|---|---|---|---|
+| undefended | 1.3% | 4.9% | 3.5% | -- | -- | 14.7% |
+
+*Hindi*
+
+| Defense | ASR | uASR | gap | E | p | utility |
+|---|---|---|---|---|---|---|
+| undefended | 0.7% | 2.7% | 2.0% | -- | -- | 14.7% |
 
