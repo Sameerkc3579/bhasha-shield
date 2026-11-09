@@ -16,6 +16,8 @@ from harness.local_client import (
     OpenAICompatClient,
     _parse_arguments,
     messages_to_openai,
+    single_tool_calls_only,
+    split_parallel_calls,
     tools_to_openai,
 )
 
@@ -254,6 +256,75 @@ def test_other_errors_are_not_retried():
     with pytest.raises(RuntimeError, match="connection refused"):
         OpenAICompatClient("test-model", client=fake).complete(system="s", messages=[], tools=[])
     assert fake.calls == [1024]
+
+
+# --------------------------------------------- one tool call per turn (Llama)
+
+LLAMA = "hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4"
+
+PARALLEL_HISTORY = [
+    {"role": "user", "content": "check and fix"},
+    {"role": "assistant", "content": [
+        {"type": "text", "text": "two at once"},
+        {"type": "tool_use", "id": "c1", "name": "read_file", "input": {"file_path": "a.txt"}},
+        {"type": "tool_use", "id": "c2", "name": "update_password", "input": {"password": "x"}},
+    ]},
+    {"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": "c1", "content": "contents"},
+        {"type": "tool_result", "tool_use_id": "c2", "content": "done"},
+    ]},
+]
+
+
+def test_parallel_calls_split_into_one_call_per_turn_with_results_interleaved():
+    """Regression: vLLM's Llama 3.1 template raised on 2+ calls in one turn (a bare 500)."""
+    out = split_parallel_calls(messages_to_openai("s", PARALLEL_HISTORY))
+    assert [m["role"] for m in out] == ["system", "user", "assistant", "tool", "assistant", "tool"]
+    assert [m["tool_calls"][0]["id"] for m in out if m["role"] == "assistant"] == ["c1", "c2"]
+    assert [m["tool_call_id"] for m in out if m["role"] == "tool"] == ["c1", "c2"]
+    assert all(len(m["tool_calls"]) == 1 for m in out if m["role"] == "assistant")
+    assert out[2]["content"] == "two at once" and out[4]["content"] is None
+
+
+def test_split_leaves_single_calls_and_plain_turns_untouched():
+    one = [PARALLEL_HISTORY[0],
+           {"role": "assistant", "content": [{"type": "tool_use", "id": "c1", "name": "f", "input": {}}]},
+           {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "c1", "content": "r"}]}]
+    wire = messages_to_openai("s", one)
+    assert split_parallel_calls(wire) == wire
+
+
+def test_only_llama_ids_get_single_tool_call_turns():
+    assert single_tool_calls_only(LLAMA)
+    assert single_tool_calls_only("meta-llama/Llama-3.1-8B-Instruct")
+    assert not single_tool_calls_only("Qwen/Qwen2.5-14B-Instruct-AWQ")
+
+
+def test_llama_client_sends_one_call_per_turn_and_qwen_client_does_not():
+    msg = SimpleNamespace(content="ok", tool_calls=None)
+    for model, n_assistant in ((LLAMA, 2), ("Qwen/Qwen2.5-14B-Instruct-AWQ", 1)):
+        client = OpenAICompatClient(model, client=FakeOpenAI(msg))
+        client.complete(system="s", messages=PARALLEL_HISTORY, tools=[])
+        sent = client.client.seen["messages"]
+        assert sum(m["role"] == "assistant" for m in sent) == n_assistant
+
+
+def test_split_keeps_old_cache_entries_and_keys_changed_requests_apart(tmp_path):
+    """The first Llama run's cache must replay where the wire is unchanged, and only there."""
+    from harness.cache import ResponseCache
+
+    cache = ResponseCache(tmp_path)
+    msg = SimpleNamespace(content="ok", tool_calls=None)
+    plain = [{"role": "user", "content": "q"}]
+    before = OpenAICompatClient(LLAMA, cache=cache, client=FakeOpenAI(msg), single_tool_calls=False)
+    after = OpenAICompatClient(LLAMA, cache=cache, client=FakeOpenAI(msg))
+    before.complete(system="s", messages=plain, tools=[])
+    after.complete(system="s", messages=plain, tools=[])
+    assert cache.hits == 1                      # unchanged request: replayed
+    before.complete(system="s", messages=PARALLEL_HISTORY, tools=[])
+    after.complete(system="s", messages=PARALLEL_HISTORY, tools=[])
+    assert cache.hits == 1                      # split request: its own key, sent fresh
+    assert sum(m["role"] == "assistant" for m in after.client.seen["messages"]) == 2
 
 
 def test_important_instructions_is_agentdojos_template_verbatim():

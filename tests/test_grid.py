@@ -230,6 +230,7 @@ def test_only_server_failures_and_legacy_blanks_are_rerun():
 
     assert grid.needs_rerun(r(True, "APIConnectionError: Connection error."))
     assert grid.needs_rerun(r(True, "APITimeoutError: Request timed out."))
+    assert grid.needs_rerun(r(True, "InternalServerError: Internal Server Error"))  # Llama, 2026-10-21
     assert grid.needs_rerun(r(True))                            # written before errors were kept
     assert not grid.needs_rerun(r(True, "BadRequestError: Error code: 400 - maximum context length"))
     assert not grid.needs_rerun(r(False))

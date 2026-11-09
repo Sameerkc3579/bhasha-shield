@@ -186,7 +186,9 @@ def clean_path(defense: str, lang: str = "en", localized: bool = False, usertask
 # Failures of the serving stack, not of the agent. 2026-10-09: vLLM died at the end
 # of `en spotlight` and every later cell "finished" in about a minute, all errored --
 # and existing files read as done, so the next session would have skipped them.
-INFRA_ERRORS = ("APIConnectionError", "APITimeoutError")
+# 2026-10-21: a bare 500 is the server failing too -- Llama's chat template raising on
+# parallel tool calls read as 64 "done" errors per cell. A context overflow is a 400.
+INFRA_ERRORS = ("APIConnectionError", "APITimeoutError", "InternalServerError")
 
 
 def needs_rerun(r: CaseResult) -> bool:

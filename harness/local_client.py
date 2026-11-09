@@ -115,6 +115,45 @@ def messages_to_openai(system: str, messages: list[dict[str, Any]]) -> list[dict
     return out
 
 
+def split_parallel_calls(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One tool call per assistant turn: [a(c1, c2), t1, t2] -> [a(c1), t1, a(c2), t2].
+
+    vLLM's Llama 3.1 tool template raises on an assistant message with more than one
+    tool call ("This model only supports single tool-calls at once!"), and the server
+    answers that with a bare 500. The model still *emits* parallel calls, so the first
+    Llama run (2026-10-21) lost every run that made one: 37 of 79 clean runs, all of
+    them, and none of the others. The text of the turn stays with its first call.
+    """
+    out: list[dict[str, Any]] = []
+    i = 0
+    while i < len(msgs):
+        m = msgs[i]
+        calls = m.get("tool_calls") or []
+        if m["role"] != "assistant" or len(calls) < 2:
+            out.append(m)
+            i += 1
+            continue
+        j = i + 1
+        results: dict[str, dict[str, Any]] = {}
+        while j < len(msgs) and msgs[j]["role"] == "tool":
+            results[msgs[j]["tool_call_id"]] = msgs[j]
+            j += 1
+        for n, tc in enumerate(calls):
+            out.append({"role": "assistant", "content": m["content"] if n == 0 else None,
+                        "tool_calls": [tc]})
+            if tc["id"] in results:
+                out.append(results.pop(tc["id"]))
+        out.extend(results.values())  # a result with no matching call: keep, never drop
+        i = j
+    return out
+
+
+def single_tool_calls_only(model: str) -> bool:
+    """Models whose served chat template accepts one tool call per assistant turn."""
+    m = model.lower()
+    return "llama-3" in m or "llama3" in m
+
+
 def _parse_arguments(raw: Any) -> dict[str, Any]:
     """Tool arguments arrive as a JSON string and small models mangle them.
 
@@ -173,8 +212,12 @@ class OpenAICompatClient:
         max_tokens: int = 1024,
         temperature: float = 0.0,
         client: Any = None,
+        single_tool_calls: bool | None = None,
     ):
         self.model = model
+        # None = decide from the model id (see split_parallel_calls)
+        self.single_tool_calls = (single_tool_calls_only(model) if single_tool_calls is None
+                                  else single_tool_calls)
         self.base_url = base_url
         self.cache = cache
         self.max_tokens = max_tokens
@@ -197,11 +240,20 @@ class OpenAICompatClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> ModelResponse:
+        wire = messages_to_openai(system, messages)
+        extra: dict[str, Any] = {"backend": "openai-compat"}
+        if self.single_tool_calls:
+            split = split_parallel_calls(wire)
+            # Keyed apart only when the split changed what is sent: every other request
+            # is byte-identical on the wire, so its cached reply stays valid.
+            if split != wire:
+                wire = split
+                extra["single_tool_call_turns"] = True
         key = request_key(
             model=self.model,
             payload={"system": system, "messages": messages, "tools": tools},
             temperature=self.temperature,
-            extra={"backend": "openai-compat"},
+            extra=extra,
         )
         if self.cache is not None:
             hit = self.cache.get(key)
@@ -216,7 +268,7 @@ class OpenAICompatClient:
             )
             return self.client.chat.completions.create(
                 model=self.model,
-                messages=messages_to_openai(system, messages),
+                messages=wire,
                 max_tokens=max_tokens,
                 temperature=self.temperature,
                 **tool_kwargs,
