@@ -181,6 +181,17 @@ def benign_status(lang: str, idx: dict | None = None) -> dict[str, Status]:
 
 
 REVIEW_FIELDS = ["item_id", "adversarial", "english", "text", "verified_by", "notes"]
+SAVE_AS = "in Excel: File > Save As > 'CSV UTF-8 (Comma delimited)'"
+
+
+def _to_sheet(text: str) -> str:
+    """Excel reads a cell starting with = + - @ as a formula and saves '#NAME?' back. A leading
+    apostrophe makes it plain text in the sheet; `_from_sheet` takes it off again."""
+    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
+
+
+def _from_sheet(text: str, old: str) -> str:
+    return text[1:] if text.startswith("'") and not old.startswith("'") else text
 
 
 def review_path(lang: str) -> Path:
@@ -200,7 +211,8 @@ def review_export(lang: str, *, everything: bool = False) -> Path:
             st = status[b.item_id]
             if everything or st.state != "verified":
                 w.writerow({"item_id": b.item_id, "adversarial": "yes" if b.adversarial_benign else "",
-                            "english": en.get(b.item_id, ""), "text": b.content, "verified_by": "",
+                            "english": _to_sheet(en.get(b.item_id, "")), "text": _to_sheet(b.content),
+                            "verified_by": "",
                             "notes": "" if st.state in ("verified", "unverified") else st.state})
     return path
 
@@ -212,8 +224,12 @@ def review_import(lang: str) -> tuple[int, int]:
     en = {b.item_id: b for b in load_benign("en")}
     idx = provenance_index()
     hi = {b.item_id: b for b in load_benign("hi")} if lang == "hi_latn" else {}
-    with review_path(lang).open(encoding="utf-8-sig", newline="") as f:
-        rows = list(csv.DictReader(f))
+    try:
+        with review_path(lang).open(encoding="utf-8-sig", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except UnicodeDecodeError:
+        raise SystemExit(f"{review_path(lang)} was not saved as UTF-8; nothing imported. Save it again, "
+                         f"{SAVE_AS}, and re-run the import.") from None
 
     problems, unsigned, updates = [], [], []
     for r in rows:
@@ -221,8 +237,8 @@ def review_import(lang: str) -> tuple[int, int]:
         if iid not in by_id:
             problems.append(f"{iid}: unknown item id")
             continue
-        text = r["text"].replace("\r\n", "\n").strip("\n")
         old = by_id[iid].content
+        text = _from_sheet(r["text"].replace("\r\n", "\n").strip("\n"), old)
         if not who:
             if text != old:
                 unsigned.append(iid)
@@ -231,6 +247,11 @@ def review_import(lang: str) -> tuple[int, int]:
             problems.append(f"{iid}: empty text")
             continue
         if text != old:
+            lost_chars = {c for c in old if ord(c) > 127} - set(text)
+            if lost_chars and text.count("?") > old.count("?"):
+                problems.append(f"{iid}: non-English characters came back as '?': the sheet was saved "
+                                f"without UTF-8 ({SAVE_AS})")
+                continue
             ref = en[iid].content if iid in en else old
             lost = sorted(e for e in entities(ref) if e not in text)
             if lost:

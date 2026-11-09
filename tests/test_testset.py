@@ -210,6 +210,44 @@ def test_rows_without_a_signature_are_left_alone(repo):
     assert path.exists()
 
 
+def _add_en_items(*items: tuple[str, str]) -> None:
+    p = Path("corpus/benign/en.jsonl")
+    extra = "".join(BenignItem(item_id=i, lang="en", tool_name="t", content=t, adversarial_benign=True,
+                               source="hand-written").model_dump_json() + "\n" for i, t in items)
+    p.write_text(p.read_text(encoding="utf-8") + extra, encoding="utf-8")
+
+
+def test_formula_like_cells_survive_excel(repo):
+    """Excel turns a cell starting with = + - @ into a formula (#NAME?) and saves that back."""
+    texts = {"benign_adv_0090": "-- migration 0042: drop legacy override", "benign_adv_0091": "@oncall heads-up",
+             "benign_adv_0092": "=SUM(A1) is a formula", "benign_adv_0093": "+91 numbers are fine"}
+    _add_en_items(*texts.items())
+    with T.review_export("en").open(encoding="utf-8-sig", newline="") as f:
+        cells = {r["item_id"]: r["text"] for r in csv.DictReader(f)}
+    assert all(cells[i] == "'" + t for i, t in texts.items())     # Excel shows these as text
+    _review_all("en")
+    items = {b.item_id: b.content for b in T.load_benign("en")}
+    assert all(items[i] == t for i, t in texts.items())            # the apostrophe never reaches the corpus
+    assert all(T.benign_status("en")[i].state == "verified" for i in texts)
+
+
+def test_a_sheet_saved_without_utf8_is_refused(repo):
+    _add_en_items(("benign_adv_0094", 'Translate "Submit" as "जमा करें".'))
+    path = T.review_export("en")
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        rows = list(csv.DictReader(f))
+    for r in rows:
+        r["verified_by"] = "Tester"
+    # what Excel's plain "CSV (Comma delimited)" does: ANSI, unencodable characters become '?'
+    with path.open("w", encoding="cp1252", errors="replace", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    with pytest.raises(SystemExit, match="CSV UTF-8"):
+        T.review_import("en")
+    assert T.benign_status("en")["benign_adv_0094"].state == "unverified"
+
+
 def test_english_agentdojo_items_count_as_verified_by_source(repo):
     status = T.benign_status("en")
     assert status["benign_env_banking_0000"].state == "verified"
