@@ -12,7 +12,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4"]
+# <9.2: pytest 9.2.0 dies at collection (INTERNALERROR: 'NodeId' object has no attribute
+# '_str_cache'), found replaying CI on 2026-11-09; 9.1.1 runs the whole suite.
+dev = ["pytest>=7.4,<9.2"]
 classifiers-local = ["torch", "transformers", "sentencepiece", "protobuf"]
 analysis = ["matplotlib", "numpy", "pandas"]
 
