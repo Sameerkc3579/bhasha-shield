@@ -641,7 +641,7 @@ def main(argv: list[str] | None = None) -> int:
         with path.open(encoding="utf-8-sig") as f:
             rows = sum(1 for _ in csv.DictReader(f))
         print(f"wrote {rows} items to {path}: fix `text` where needed, put your name in `verified_by`, "
-              f"save as CSV, then `python -m corpus.testset review import {a.lang}`")
+              f"save ({SAVE_AS}), then `python -m corpus.testset review import {a.lang}`")
     elif a.cmd == "review":
         edited, signed = review_import(a.lang)
         print(f"{a.lang}: {signed} items signed ({edited} edited)")
