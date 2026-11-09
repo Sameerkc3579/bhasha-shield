@@ -414,3 +414,44 @@ Claude Code writes the code, tests, notebooks and analysis. **Sameer** runs the 
 When these are in, the bhasha-shield entry gets the strongest 3–4 of them and drops the weakest v1 bullets, so the resume stays one page.
 
 **Tell people about it:** a LinkedIn post at G3 (the result) and at G6 (the release). Tag the PromptGuard and ProtectAI teams politely with the comparison. Cold-email Indian AI labs and startups with the Space link.
+
+## Appendix: prior-art search and venues (Phase 0, 9 Nov 2026)
+
+Re-run at the start of every phase (v1 standing rule). Web search on 9 Nov 2026 for Indic and
+multilingual prompt-injection guards, datasets and agent benchmarks.
+
+**What exists.** Every Indic guard found targets **direct** injection (the attack typed into the user's
+prompt). The one multilingual **indirect** (tool-output) defense covers English and Bangla only. None
+tests inside an agent, reports detection at a fixed low FPR against calibrated PromptGuard 2, or
+measures false positives on adversarial-benign tool output.
+
+| Work | Date | Setting | Languages | What it releases | Overlap with v2 |
+|---|---|---|---|---|---|
+| Srinivasan et al., *Detection and analysis of prompt injection in Indian multilingual LLMs*, Scientific Reports ([PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC13201763/)) | Apr 2026 | direct | hi, Hinglish | 4,000 prompts (half safe), on HF and Kaggle; rules + XLM-R hybrid, 99.7% accuracy | Different attack surface (user prompt, not tool output). No PromptGuard/ProtectAI comparison, no FPR at a fixed budget. Cite; evaluate its released model or data if available. |
+| `craftloop-ai/hinglish-prompt-guard` ([HF](https://huggingface.co/craftloop-ai/hinglish-prompt-guard)) | 2026 (date not stated) | direct (overrides, extraction, jailbreaks) | en, Hinglish, hi | mDeBERTa-v3-base classifier, MIT; ~15k training items, mostly English public sets + a Hinglish set | **Same base model as one v2 candidate.** Add it as a baseline on the v2 test set: it is the closest released Hindi/Hinglish guard. |
+| IndicGuard ([GitHub](https://github.com/hustlerx01/indicguard)) | Oct 2026 | direct; indirect explicitly out of scope | hi, Hinglish, mr | rule-based co-occurrence detector; 75 hand-written prompts; MIT | A small rules baseline; cite. |
+| Muhtadi & Tazwar, *MIPIAD: Multilingual Indirect Prompt Injection Attack Defense* ([arXiv 2605.07269](https://arxiv.org/abs/2605.07269)) | May 2026 | **indirect**, RAG and tool use | en, bn | synthetic BIPIA-based set (1.43M samples); best F1 0.92, AUROC 0.94; release of data/code not stated in the abstract | **Closest in setting.** No Hindi, no agent-level test, no calibrated-baseline comparison. Must be cited; relevant if Bengali is added. |
+| G, *Visible Reasoning and Indirect Prompt-Injection Monitorability Across English, Tamil, and Tanglish* ([arXiv 2608.15392](https://arxiv.org/abs/2608.15392)) | Aug 2026 | indirect, one agent model (Sarvam-105B) | en, ta, Tanglish | code and artifacts; no dataset or guard | Small scenario sets, explicitly inconclusive; cite as related agent-level work. |
+| IndicSafe ([arXiv 2603.17915](https://arxiv.org/abs/2603.17915)) | Mar 2026 | general LLM safety | 12 Indic languages | safety benchmark | Not injection; cite for context. |
+| BabelArena ([arXiv 2609.23490](https://arxiv.org/abs/2609.23490)) | Sep 2026 | multilingual agent capability | 23 languages | agent benchmark | Supports v1's capability-confound argument (lower-resource languages fail more at tool use); cite. |
+
+**Consequences for the plan** (for Sameer to decide):
+1. Add `craftloop-ai/hinglish-prompt-guard` to the Phase 3 baselines, scored on the same frozen test set,
+   split and calibration. A guard that beats only PromptGuard 2 and ProtectAI would be challenged with it.
+2. Position the contribution as **indirect** injection in **tool output**, measured at classifier *and*
+   agent level, at a fixed low FPR with per-language calibration. The prior work covers direct prompts or
+   other languages.
+3. If the Scientific Reports dataset is public, it is a ready out-of-domain test for the guard (direct
+   prompts): report it separately, never mix it into the frozen test set.
+
+**Venues with a deadline after week 11 (25 Jan 2027)** — the choice is Sameer's; write the picks at the
+top of this file:
+
+| Venue | Deadline | Format | Fit |
+|---|---|---|---|
+| USENIX SAIS '27, Conference on Secure Agentic-AI Systems ([CFP](https://www.usenix.org/conference/sais27/call-for-papers)) | 4 Feb 2027, 23:59 AoE | full paper, up to 13 pages + appendices; archival; double-blind; no short papers | Strong: "attacks exploiting untrusted inputs or tool outputs" is a listed topic. Needs the v1 + v2 paper at full length. Check its preprint policy before posting to arXiv. |
+| Verifiable Agent Safety workshop, ICLR 2027 ([site](https://verifiableagentsafety.github.io/)) | abstract 25 Jan, paper 1 Feb 2027 | 5–9 pages or 2–4 page short; non-archival | Medium: welcomes empirical studies; the focus is guarantees and monitors. Non-archival, so it does not block an archival venue later. One search result called it "proposed": confirm it was accepted. |
+| ACL 2027 / NAACL 2027 workshops (e.g. a successor of LLMSEC, which ran at ACL 2025) | not announced yet | usually 4–8 pages | Watch the calls: the natural home for a multilingual-NLP paper, with deadlines later in spring 2027. |
+
+Too early for this plan: STALA at NDSS 2027 ([site](https://stala-workshop.github.io/), 11 Dec 2026) and
+LLM Agents Under Threat at AAAI-27 ([site](https://llm-agents-under-threat.github.io/), 20 Nov 2026).

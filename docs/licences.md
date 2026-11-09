@@ -21,6 +21,7 @@ release under CC BY 4.0 like the v1 corpus (docs/v2-plan.md, Risks and fallbacks
 | Llama 3.1 8B Instruct (AWQ) | v1 second-model spot-check | `hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4` (from `meta-llama/Llama-3.1-8B-Instruct`) | | | Gated. v1 only; no v2 plan uses it. |
 | Prompt Guard 2, 86M and 22M | baseline (v1, v2); candidate base for continued training (v2) | `meta-llama/Llama-Prompt-Guard-2-86M`, `meta-llama/Llama-Prompt-Guard-2-22M` | | | Gated. If the guard is trained from it, the released guard is a derivative: what name, notice and licence terms must it carry? |
 | ProtectAI DeBERTa v3 prompt-injection v2 | baseline (v1, v2) | `protectai/deberta-v3-base-prompt-injection-v2` | | | |
+| Hinglish Prompt Guard | candidate baseline (prior-art search, 9 Nov 2026) | `craftloop-ai/hinglish-prompt-guard` | | | Its model card says MIT; confirm. Trained on direct prompts, not tool output. |
 | mDeBERTa-v3-base | candidate guard base model | `microsoft/mdeberta-v3-base` | | | The plan's fallback base model. |
 | MuRIL base | candidate guard base model | `google/muril-base-cased` | | | |
 | IndicBERT v2 | candidate guard base model | `ai4bharat/IndicBERTv2-MLM-only` | | | Check the exact model id and which checkpoint the plan means. |
