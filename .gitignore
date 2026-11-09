@@ -44,3 +44,7 @@ corpus/guardset/out/
 # Offline wiring checks (--fake) and the notebook's old auto-printed entry: not results.
 analysis/out/*_fake.json
 analysis/out/phase1_results_entry.md
+
+# v2 Phase 1 working files: the pilot build and the review sheets (provenance.jsonl is the record).
+corpus/testset/pilot/
+corpus/review/testset_*.csv
