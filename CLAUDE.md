@@ -12,6 +12,9 @@
 - Never invent results, citations or dataset sizes. If unknown, say so.
 - Never commit datasets, model weights, caches, .env or tokens.
 - Never call a paid hosted API. Models are open-weight on free GPUs.
+- Never put a person's name in a frozen or released artifact (test set, dataset, model card, paper
+  links): the target venue, USENIX SAIS '27, is double-blind. Reviewers appear as codes from
+  corpus/reviewers.json.
 
 ## Always
 - Write or update tests first. Run `python -m pytest` before every commit.
