@@ -1,0 +1,50 @@
+# Offline test suite on every push and pull request: no GPU, no model, no API key.
+# AgentDojo is pinned by SHA (as in README and the notebooks); without it the agent-loop
+# tests skip themselves, so CI installs it to run them.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+env:
+  AGENTDOJO_SHA: 089ed468cf3ed0322acc66b0211f26d9d90dbf60
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: AgentDojo at its pinned commit
+        run: |
+          git clone --quiet --depth 50 https://github.com/ethz-spylab/agentdojo.git vendor/agentdojo
+          git -C vendor/agentdojo checkout --quiet "$AGENTDOJO_SHA"
+
+      # AgentDojo goes in with --no-deps (its list drags in langchain for a pipeline we do not
+      # use); these are its real runtime imports, as in notebooks/grid_colab.ipynb.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pydantic[email]>=2.7.1" "docstring-parser>=0.15" "tenacity>=8.2.3" \
+            "pyyaml>=6.0.1" "click>=8.1.7" "deepdiff>=8.6.1" "rich>=13.7.1" "python-dotenv>=1.0.1" \
+            "typing-extensions>=4.11.0" requests openai "anthropic>=0.47.0" "cohere>=5.3.4" "google-genai>=1.15.0"
+          pip install --no-deps -e vendor/agentdojo
+          pip install -e ".[dev]"
+
+      - name: Import check
+        run: python -c "from agentdojo.task_suite.load_suites import get_suites; print(sorted(get_suites('v1.2.1')))"
+
+      - name: Offline wiring (--fake)
+        run: |
+          python -m scripts.phase0_smoke --fake
+          python -m scripts.phase2_probe --fake
+
+      - name: Tests
+        run: python -m pytest -p no:warnings

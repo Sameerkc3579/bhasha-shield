@@ -29,7 +29,22 @@ desktop.ini
 # merged into .cache/, traces/ and analysis/out/, which have their own rules above).
 *.tgz
 cache/
+cache (*)/
+
+# v2: datasets and model weights live on Hugging Face, never in git (docs/v2-plan.md).
+*.safetensors
+*.bin
+*.pt
+*.onnx
+*.parquet
+guard/checkpoints/
+guard/runs/
+corpus/guardset/out/
 
 # Offline wiring checks (--fake) and the notebook's old auto-printed entry: not results.
 analysis/out/*_fake.json
 analysis/out/phase1_results_entry.md
+
+# v2 Phase 1 working files: the pilot build and the review sheets (provenance.jsonl is the record).
+corpus/testset/pilot/
+corpus/review/testset_*.csv
