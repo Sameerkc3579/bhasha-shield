@@ -38,23 +38,26 @@ python -m scripts.phase0_smoke --fake   # no model: verifies the wiring
 python -m scripts.phase2_probe --fake   # no model: verifies the probe wiring
 ```
 
+**The experiments are complete** (2026-11-09). Every GPU step has run; nothing is queued.
+
 | Phase | State |
 |---|---|
 | 0 -- Foundations | done |
 | 1 -- English baseline | done (14B, `important_instructions`) |
-| 2 -- Capability ceiling (**go/no-go**) | done for `en` and `hi` (verified goals); `hi_latn`, `mixed` probes on the verified goals are queued in the notebook; the confound is real: C(en) 0.56 (79/142), C(hi) 0.27 (40/150) |
-| 3 -- Localization | goals and templates human-verified for `hi`, `hi_latn`, `mixed`; `bn` stays a machine-drafted pilot (no fluent reviewer); benign corpus 300/lang, machine-drafted, sample model-reviewed; Hindi user tasks (H5) model-reviewed |
+| 2 -- Capability ceiling (**go/no-go**) | done for `en`, `hi`, `hi_latn`, `mixed` on verified goals (`bn`: draft pilot); the confound is real: C(en) 0.56 (79/142), C(hi) 0.27 (40/150), C(hi_latn) 0.40, C(mixed) 0.39 |
+| 3 -- Localization | goals and templates human-verified for `hi`, `hi_latn`, `mixed`; `bn` stays a machine-drafted pilot (no fluent reviewer); benign corpus 300/lang, machine-drafted, sample model-reviewed; Hindi user tasks (H5) model-reviewed, so H5 is a pilot |
 | 4 -- Defenses | nine built; `xlmr_finetuned` dropped (no free labelled Hindi set we could verify) |
-| 5 -- The grid | **complete** for `en` (7 defenses) and `hi` (4); queued: the Hindi diagnostic, `hi_latn`/`mixed`, H5, a second model (Llama 3.1 8B) |
-| 6 -- Calibration + artifact | done for ProtectAI (raw and transliterate-first) and PromptGuard 2; proxy demo works |
-| 7 -- Write-up | tables and figures regenerate from disk (`analysis/figures.py`); paper not started |
+| 5 -- The grid | done: `en` (7 defenses), `hi` (4), `hi_latn` and `mixed` undefended (too few successful attacks to compare defenses: the result), the Hindi template diagnostic, H5 under all 7 defenses, a second model (Llama 3.1 8B) |
+| 6 -- Calibration + artifact | done for ProtectAI (raw and transliterate-first) and PromptGuard 2; the proxy runs on a laptop CPU |
+| 7 -- Write-up | every table and figure regenerates from disk (`python -m analysis.figures` -> `analysis/out/figures/`); paper not started |
 
 ---
 
-## Results so far
+## Results
 
 Qwen2.5-14B, AgentDojo `important_instructions`, 150 cases. Full numbers, CIs and the
-reasoning behind each in [`RESULTS.md`](RESULTS.md).
+reasoning behind each in [`RESULTS.md`](RESULTS.md); every table in
+[`analysis/out/figures/tables.md`](analysis/out/figures/tables.md).
 
 **English defense grid** (uASR = attack success on the 88 cases the agent can actually do):
 
@@ -71,6 +74,15 @@ reasoning behind each in [`RESULTS.md`](RESULTS.md).
 - **Raw ASR misreports Hindi.** Raw ASR in Hindi is 0.7% -- "Hindi is safe". On the 40
   cases the model *can* do in Hindi it is 2.5%, against 20.5% in English: the attack, not
   the defense, fails to transfer, and no Hindi defense can be credited or blamed.
+- **It is the translated template that fails, not the Hindi goal.** Wrap the same Hindi goal
+  in AgentDojo's *English* template and the attack works again: 6/40 vs 1/40 on the same
+  cases; 15/150 vs 1/149 overall (paired: 14 vs 0 discordant, McNemar p = 0.0001). Romanized Hindi (1/63) and
+  code-mixed (8/63) templates also persuade far less than English, too rarely to compare
+  defenses in them.
+- **Hindi user instructions cost more utility than any defense** (H5, pilot): the undefended
+  agent completes 19/32 tasks from English instructions and 11/32 from Hindi ones. The defenses
+  do *not* cost more in Hindi (every gap's CI contains 0) -- mostly a floor: a task already lost
+  to the language cannot be lost to the defense.
 - **English-tuned detectors do not ship off-English.** ProtectAI flags 2% of ordinary
   English tool output, 47% of Hindi and 65% of Bengali; its injection ranking is inverted
   in Devanagari and Bengali script (AUC 0.45, 0.39). Transliterating first partly repairs
@@ -80,6 +92,9 @@ reasoning behind each in [`RESULTS.md`](RESULTS.md).
   anywhere; Hindi's own threshold catches 51% at 2% false positives. Calibrate per language.
 - **Every defense halves English attacks; the utility bill differs by 2x**, and ProtectAI in
   the loop halves task completion for the same efficacy as the free sandwich prompt.
+- **Second model: Llama 3.1 8B is too weak to attack in either language** (2/150 English,
+  1/150 Hindi; it completes 15% of ordinary tasks), so it cannot test transfer. It is a
+  spot-check and a limitation; the findings above are the 14B's.
 
 ---
 
@@ -151,12 +166,18 @@ pins that behaviour.
 | `corpus/environments.py` | C3: AgentDojo environments with prose localized, checker values kept; three offline gates |
 | `corpus/benign_extend.py` | benign corpus 127 -> 300: hand-written items (India-context), staged and entity-checked |
 | `corpus/user_tasks.py`, `analysis/h5.py` | H5: Hindi user instructions on 32 language-fair tasks, and the per-task utility-cost analysis |
+| `harness/local_client.py` | OpenAI-compatible client for vLLM; one tool call per turn for Llama 3 |
 | `notebooks/grid_colab.ipynb` | every GPU step, in priority order, gated on verification; resumable |
-| `tests/` | 280 tests, scoring first |
+| `tests/` | 285 tests, scoring first |
 
 ---
 
 ## The firewall in 90 seconds
+
+The calibrated thresholds are committed, so on a fresh clone the last two lines are enough:
+no GPU, no API key. The detector downloads from Hugging Face on first use and takes about a
+minute to load on a CPU. The demo shows the point of the project in four lines: the detector
+lets a Hindi injection through, and the sink rule still stops the payment it asks for.
 
 ```bash
 python -m scripts.benign_fpr --langs en hi hi_latn bn mixed --defenses protectai_deberta   # CPU, ~8 min

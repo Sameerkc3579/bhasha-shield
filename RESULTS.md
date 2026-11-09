@@ -1125,4 +1125,123 @@ The benign review fix of 10-14 (one item, hi/hi_latn) was re-scored; no table mo
 
 ---
 
+## 2026-10-21 — the completion plan ran: the template is what fails in Hindi; H5 is not supported; Llama is not yet valid
+
+Colab T4, two sessions (the first log is stamped 10-14), `Qwen/Qwen2.5-14B-Instruct-AWQ` for steps 1-3, then
+step 9 on `hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4`. Spend: **Rs 0**. Step 8 ended "nothing
+left"; Drive's `cache.tgz` merged here (1721 new files, 0 cache conflicts, 2 probe traces extended; the two
+`en` grid files keep the locally filled-in error text of 10-13).
+
+**Infrastructure.** vLLM died twice of CUDA OOM (`hi_latn` and `mixed` undefended): a 642 MiB allocation in
+the AWQ matmul, i.e. one ~12k-token prefill, with ~590 MiB free at `--gpu-memory-utilization 0.95`. The
+restart-and-repair loop re-ran only the lost results (19 and 16) both times. What still errors in those
+cells is context overflow (2 cases each, >12288 tokens), as in the English cells.
+
+**1. The translated template, not the Hindi goal, is what fails** (`important_instructions_enframe`: AgentDojo's
+English template around the Hindi goal, undefended):
+
+| template around the Hindi goal | on the hi probe's 40 scorable cases | all cases | uASR, scorable set |
+|---|---|---|---|
+| Hindi (10-13) | 1/40 | 1/149 | 0.025 (1/40) |
+| English | **6/40** | **15/150** | **0.306 (15/49)** |
+
+Paired McNemar on the same cases: 5 vs 0 discordant on the 40 (p = 0.06); 14 vs 0 over all 149 paired
+cases (p = 0.0001). For reference, English goal + English template: 0.205 (18/88). So the model acts on a
+Hindi goal about as readily as on an English one when the persuasion is English; the Hindi template is what
+does not persuade. **9 of the 15 successes are on goals the Hindi probe called unachievable**, so the Hindi
+probe (goal given directly as a Hindi user request) understates capability; the 6/40 is the like-for-like
+number, 15/49 the scorable-set convention.
+
+**2. `hi_latn` and `mixed`, undefended** (verified templates and goals):
+
+| lang | probe C over cases | ASR | uASR |
+|---|---|---|---|
+| hi_latn | 0.404 (n=146) | 0.007 (1/148) | 0.016 (1/63) |
+| mixed | 0.395 (n=147) | 0.054 (8/148) | 0.127 (8/63) |
+
+Both are under the 10-success gate, so **no defended cell ran off-English**: with 1 and 8 successes a
+defense cannot be compared, and that is the result. Banking goals fail in both probes
+(unauthorised-transaction 7/31 hi_latn, 0/28 mixed).
+
+**3. H5: Hindi user instructions, no attack, 32 language-fair tasks** (pilot: the instructions are
+model-reviewed, not human-verified). Undefended utility is **19/32 in English vs 11/32 in Hindi** (10 tasks
+lost, 2 gained; McNemar p = 0.04): the language alone costs more than any defense does.
+
+| defense | util en | util hi | cost en | cost hi | gap | 95% CI | blocked en/hi |
+|---|---|---|---|---|---|---|---|
+| sandwich* | 0.645 | 0.355 | -0.032 | +0.000 | +0.032 | [-0.161, +0.258] | 0.00/0.00 |
+| spotlight* | 0.581 | 0.387 | +0.032 | -0.032 | -0.065 | [-0.258, +0.129] | 0.00/0.00 |
+| camel_lite | 0.375 | 0.250 | +0.219 | +0.094 | -0.125 | [-0.281, +0.031] | 0.44/0.38 |
+| allowlist | 0.500 | 0.312 | +0.094 | +0.031 | -0.062 | [-0.156, +0.000] | 0.19/0.16 |
+| protectai_deberta | 0.438 | 0.344 | +0.156 | +0.000 | -0.156 | [-0.375, +0.031] | 0.59/0.47 |
+| honeytool | 0.562 | 0.312 | +0.031 | +0.031 | +0.000 | [-0.250, +0.219] | 0.00/0.00 |
+
+\* 31 tasks: one run overflowed the context (en sandwich `workspace/user_task_13`, hi spotlight
+`workspace/user_task_25`) and is dropped from the pairing.
+
+- **H5 (defenses cost more in Hindi) is not supported.** No gap is positive beyond noise; the costly
+  defenses even cost less in Hindi. That is mostly a floor: a task already lost to the language cannot be
+  lost to the defense.
+- **Floor check** (exploratory, done after seeing the table): on the 9 tasks undefended solves in *both*
+  languages, the negative gaps vanish (camel_lite 3/9 lost in each language, allowlist 1/9 each, protectai
+  0/9 each, sandwich and spotlight +1 task in Hindi). Honeytool loses **0/9 in English and 4/9 in Hindi**
+  (all 4 discordant one way, exact McNemar p = 0.125; it never tripped, so this is the larger prompt, not
+  detection). Too few tasks to claim; worth one sentence as a lead.
+- ProtectAI blocks something in 59% / 47% of runs that contain no attack: every block is a false positive,
+  the same finding as its halved English utility.
+
+**4. Llama 3.1 8B: NOT valid, do not report** (superseded by the repaired run, 2026-11-09 below). The probe errored 16/35 goals (en) and 7/35 (hi); both grid
+cells errored the same 64/150 cases, every one `InternalServerError: Internal Server Error`. The cause is
+the serving set-up, not the model: in the clean trace, **all 37 errored runs had a step with two or more
+tool calls, and none of the 42 that finished did** -- the 500 comes on the request after the multi-call
+step. That fits vLLM's `tool_chat_template_llama3.1_json.jinja`, which raises on an assistant message with
+more than one tool call (the server log itself was not checked). Because the error is not an
+APIConnection/Timeout error, the cells read "done".
+
+**Fix (2026-10-22), awaiting a Llama-only re-run.** Rendering the pinned template locally confirms it:
+the old wire messages raise "This model only supports single tool-calls at once!", the split ones render.
+`harness/local_client.py` now sends each parallel call as its own assistant turn, each followed by its
+result (`split_parallel_calls`), for Llama 3 ids only; Qwen requests are unchanged. A request is keyed
+apart in the response cache only when the split changed it, so the first run's good responses replay.
+`InternalServerError` now counts as lost to the server (`phase5_grid.INFRA_ERRORS` and the notebook's
+`INFRA`), so step 9 reads the Llama cells as "repair" and re-runs only the 64 lost cases per cell and the
+errored probe goals. No Qwen file contains a 500, so no Qwen cell changes status. Tests: 285 passed, 1 skipped.
+
+**Left:** the Llama re-run; human verification of the H5 user tasks (else H5 stays a pilot); the paper.
+
+---
+
+## 2026-11-09 — Llama 3.1 8B, repaired: too weak to attack in either language
+
+One Colab T4 session, step 9 only (`hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4`, vLLM 0.6.6,
+`llama3_json` parser, the pinned Llama 3.1 tool template). Spend: **Rs 0**. With the 10-22 fix (one tool call
+per assistant turn), **0 errors** anywhere: the 64 lost cases per cell and the errored probe goals were re-run;
+everything that had finished replayed from the response cache. Merged from `cache (9).tgz` (420 new cache
+files, 5 result files and 5 traces replaced, each trace an extension of the local copy; the two `en` Qwen
+files keep their filled-in error text). In the attack files the only change outside the 64 repaired cases is
+`attacker_task_achievable`, re-read from the now-complete probe; no attack outcome moved.
+
+| | Qwen2.5 14B | Llama 3.1 8B |
+|---|---|---|
+| utility, clean (en user task) | 0.460 (69/150) | **0.147 (22/150)** |
+| C over goals, en / hi | -- | 0.343 / 0.343 (12/35 each) |
+| C over cases, en / hi | -- | 0.267 / 0.247 |
+| ASR en | 0.121 (18/149) | 0.013 (2/150) |
+| uASR en | 0.205 (18/88) | **0.049 (2/41)** |
+| uASR hi | 0.025 (1/40) | 0.027 (1/37) |
+
+- **The attack barely works on Llama 8B even in English** (2 successes in 150), so the second model cannot
+  test whether the attack transfers off-English: en vs hi is 1 vs 0 discordant cases (McNemar p = 1). This
+  is not robustness: the same model completes 15% of ordinary tasks, and its probe shows it can carry out
+  only 12 of the 35 attacker goals when asked directly.
+- What it does show: **Llama's capability is no lower in Hindi** (12/35 goals in both; 0.267 vs 0.247 over
+  cases), so the near-zero Hindi rate is again not a capability floor -- but with English this low there is no
+  drop to explain.
+- For the paper: the 14B is the result; Llama goes in as the second-model spot-check, a limitation. A
+  stronger second model on a free GPU would be the fix (none is planned).
+
+**Left:** human verification of the H5 user tasks (else H5 stays a pilot); the paper. No GPU work is pending.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
