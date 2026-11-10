@@ -1244,4 +1244,44 @@ files keep their filled-in error text). In the attack files the only change outs
 
 ---
 
+## 2026-11-10 — v2 Phase 3 step 1: v1's ProtectAI numbers reproduce from the v2 test-set pipeline
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`), `protectai/deberta-v3-base-prompt-injection-v2`.
+Spend: **Rs 0**. The plan's rule (docs/v2-plan.md, Phase 3 step 1): before anything new is scored,
+the new scorer must give v1's numbers on v1's items.
+
+`python -m scripts.guard_eval --set pilot --reproduce-v1 --defenses protectai_deberta` scored the v1
+items of the v2 **pilot** build (kinds `v1_embedded`, `v1_payload`, `v1_benign`: 485 per language),
+then compared them with v1's score files and re-ran v1's own `analysis.calibrate` on the fresh
+scores. Report: `analysis/out/guard_eval/pilot/reproduce_v1__protectai_deberta.json`.
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items compared | 485 | 485 | 485 | 485 |
+| largest score difference | 4e-6 | 7e-6 | 1e-5 | 1e-5 |
+| AUC, embedded (v1 -> now) | 0.7307 -> 0.7307 | 0.4535 -> 0.4535 | 0.7084 -> 0.7084 | 0.6965 -> 0.6965 |
+| own threshold at 5% FPR: FPR, TPR | 3/151, 2/91 | 6/151, 2/91 | 2/151, 2/91 | 0/151, 1/91 |
+
+- **Reproduced:** no item drifted beyond 1e-4, no text changed, nothing missing; every calibration
+  point (shipped, calibrated, matched: threshold, FPR and TPR counts) is identical, and the AUCs
+  are the 10-10 entry's 0.73 / 0.45 / 0.71 / 0.70. The score differences are CPU float noise, as
+  in the 10-13 refresh (3e-6). So the v2 pilot set holds v1's items byte for byte, its halves are
+  v1's, and the new scorer is a faithful replacement for `attack_scores` + `benign_fpr`.
+- These are v1 numbers re-derived, not new results. The non-English benign items are still the
+  machine drafts that the Phase 1 review is checking.
+
+**Not done:**
+- `translit+protectai_deberta`: the job was stopped by Claude Code because the laptop ran low on
+  memory, after the raw model had finished all four languages. To re-run, one language per process.
+- PromptGuard 2: its weights are no longer cached on this laptop and no Hugging Face token is set
+  (gated model, free). It runs after the login.
+
+**Code since 11-09** (branch v2): `scripts/guard_eval.py`, `analysis/guard_tables.py` (thresholds at
+1% and 2% FPR fitted on the calibration half; test half reported; TPR CIs by bootstrap over attacker
+goals), the Phase 2 data plumbing in `corpus/guardset/`, and two Phase 1 fixes (review import rewrites
+only edited lines; reviewers may sign with their code). English benign review: 300/300 verified
+(213 signed R1 with no edits). **Tests:** 343 passed, 3 skipped.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
