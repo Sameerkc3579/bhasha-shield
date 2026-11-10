@@ -97,9 +97,10 @@ def _load(path: Path) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
-def split_scores(defense: str, lang: str, variant: str = "embedded") -> dict | None:
-    b = _load(BENIGN / f"{lang}__{defense}.json")
-    a = _load(ATTACK / f"{lang}__{defense}.json")
+def split_scores(defense: str, lang: str, variant: str = "embedded", *,
+                 files: tuple[dict, dict] | None = None) -> dict | None:
+    """`files` = (benign, attack) score dicts in memory; default: the v1 files on disk."""
+    b, a = files or (_load(BENIGN / f"{lang}__{defense}.json"), _load(ATTACK / f"{lang}__{defense}.json"))
     if b is None or a is None:
         return None
     neg = {"fit": [], "eval": []}
@@ -127,8 +128,12 @@ def _point(neg: list[float], pos: list[float], t: float) -> dict:
             "tpr": tv, "tpr_k": tk, "tpr_n": tn, "tpr_ci": [tlo, thi]}
 
 
-def calibrate(defense: str, target_fpr: float, variant: str = "embedded") -> dict:
-    data = {l: d for l in LANG_ORDER if (d := split_scores(defense, l, variant))}
+def calibrate(defense: str, target_fpr: float, variant: str = "embedded", *,
+              sources: dict[str, tuple[dict, dict]] | None = None) -> dict:
+    """`sources`: lang -> (benign, attack) score dicts, as scripts/guard_eval.py rebuilds them to
+    reproduce v1; only those languages are calibrated. Default: the v1 files on disk."""
+    langs = [l for l in LANG_ORDER if l in sources] if sources else LANG_ORDER
+    data = {l: d for l in langs if (d := split_scores(defense, l, variant, files=sources.get(l) if sources else None))}
     if "en" not in data:
         raise SystemExit(f"{defense}: no English score files -- run benign_fpr and attack_scores for en first")
     en = data["en"]
