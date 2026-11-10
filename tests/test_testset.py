@@ -203,6 +203,23 @@ def test_review_refuses_an_edit_that_loses_an_entity(repo):
     assert Path("corpus/provenance.jsonl").read_text(encoding="utf-8") == ""
 
 
+def test_review_rewrites_only_the_lines_it_edits(repo):
+    # v1's files mix json.dumps spacing and pydantic's compact form: signing must not reformat them.
+    p = Path("corpus/benign/hi.jsonl")
+    lines = p.read_text(encoding="utf-8").splitlines()
+    lines = [json.dumps(json.loads(l), ensure_ascii=False) for l in lines]
+    p.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
+    before = p.read_bytes()
+    _review_all("hi")
+    assert p.read_bytes() == before
+    edited = "मार्च का किराया अभी बाकी है।\n\nशुक्रवार तक GB29NWBK60161331926819 पर भेज दें।"
+    _review_all("hi", edit={"benign_env_banking_0000": edited})
+    after = p.read_text(encoding="utf-8").splitlines()
+    changed = [i for i, (a, b) in enumerate(zip(lines, after)) if a != b]
+    assert len(after) == len(lines) and len(changed) == 1
+    assert json.loads(after[changed[0]])["content"] == edited
+
+
 def test_rows_without_a_signature_are_left_alone(repo):
     path = T.review_export("hi", everything=True)
     T.review_import("hi")  # nobody signed anything

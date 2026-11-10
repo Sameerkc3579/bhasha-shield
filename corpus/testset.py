@@ -261,11 +261,12 @@ def review_import(lang: str) -> tuple[int, int]:
     if problems:
         raise SystemExit(f"refusing to import {review_path(lang)}:\n  " + "\n  ".join(problems))
 
-    edited = 0
+    edited = set()
     stamp = now()
     for iid, text, who, note in updates:
         changed = text != by_id[iid].content
-        edited += changed
+        if changed:
+            edited.add(iid)
         by_id[iid] = by_id[iid].model_copy(update={"content": text})
         prev = idx.get((f"benign/{iid}", lang), [])
         if changed:
@@ -278,14 +279,18 @@ def review_import(lang: str) -> tuple[int, int]:
             fields += f"; hi_sha={sha(hi[iid].content)}"
         record(f"benign/{iid}", lang, method, source_item_id=f"benign/{iid}@en", verified_by=who,
                verified_at=stamp, notes=fields + (f"; note: {note}" if note else ""), path=PROVENANCE)
-    _write(BENIGN / f"{lang}.jsonl", "".join(by_id[b.item_id].model_dump_json() + "\n" for b in items))
+    if edited:  # rewrite only the edited lines: the rest keep their bytes (v1 mixes two JSON styles)
+        path = BENIGN / f"{lang}.jsonl"
+        lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        _write(path, "".join((by_id[b.item_id].model_dump_json() if b.item_id in edited else l) + "\n"
+                             for b, l in zip(items, lines)))
     if unsigned:
         print(f"note: {len(unsigned)} rows had edited text but no verified_by; left unchanged: "
               + ", ".join(unsigned[:10]) + (" ..." if len(unsigned) > 10 else ""))
     if lang == "hi" and edited:
-        print(f"{edited} Hindi items edited: their hi_latn copies are now stale; re-read them "
+        print(f"{len(edited)} Hindi items edited: their hi_latn copies are now stale; re-read them "
               "(python -m corpus.testset review export hi_latn).")
-    return edited, len(updates)
+    return len(edited), len(updates)
 
 
 # --------------------------------------------------------------------------
