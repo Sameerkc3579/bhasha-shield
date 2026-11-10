@@ -39,6 +39,7 @@ cache (*)/
 *.parquet
 guard/checkpoints/
 guard/runs/
+corpus/guardset/drafts/
 corpus/guardset/out/
 
 # Offline wiring checks (--fake) and the notebook's old auto-printed entry: not results.

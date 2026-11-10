@@ -36,7 +36,7 @@ jobs:
             "pyyaml>=6.0.1" "click>=8.1.7" "deepdiff>=8.6.1" "rich>=13.7.1" "python-dotenv>=1.0.1" \
             "typing-extensions>=4.11.0" requests openai "anthropic>=0.47.0" "cohere>=5.3.4" "google-genai>=1.15.0"
           pip install --no-deps -e vendor/agentdojo
-          pip install -e ".[dev]"
+          pip install -e ".[dev,guardset]"
 
       - name: Import check
         run: python -c "from agentdojo.task_suite.load_suites import get_suites; print(sorted(get_suites('v1.2.1')))"
