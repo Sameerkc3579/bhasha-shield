@@ -4,7 +4,7 @@
     python -m corpus.testset review export hi            # -> corpus/review/testset_hi.csv (Excel)
     python -m corpus.testset review import hi            # signed rows back in, provenance stamped
     python -m corpus.testset native check hi             # validate corpus/native/hi_*.txt
-    python -m corpus.testset native import hi --author "Sameer Choudhary"
+    python -m corpus.testset native import hi --author R1     # a code from corpus/reviewers.json
     python -m corpus.testset build --pilot               # the shape, with unverified items allowed
     python -m corpus.testset build                       # the frozen set: refuses anything unverified
 
@@ -545,10 +545,12 @@ def collect(lang: str, *, pilot: bool = False) -> tuple[list[FrozenItem], list[s
 
 
 def reviewer_codes() -> dict[str, str]:
+    """Name -> code, and each code -> itself: a reviewer may sign with the code, which keeps the
+    name out of provenance.jsonl (public in the repo) as well."""
     codes = {"AgentDojo": "AgentDojo"}   # the benchmark's own text: an institution, not a reviewer
     if REVIEWERS.exists():
         codes.update(json.loads(REVIEWERS.read_text(encoding="utf-8")))
-    return codes
+    return codes | {c: c for c in codes.values()}
 
 
 def anonymize(items: list[FrozenItem]) -> tuple[list[FrozenItem], set[str]]:
@@ -645,7 +647,7 @@ def main(argv: list[str] | None = None) -> int:
         path = review_export(a.lang, everything=a.all)
         with path.open(encoding="utf-8-sig") as f:
             rows = sum(1 for _ in csv.DictReader(f))
-        print(f"wrote {rows} items to {path}: fix `text` where needed, put your name in `verified_by`, "
+        print(f"wrote {rows} items to {path}: fix `text` where needed, put your reviewer code (R1) in `verified_by`, "
               f"save ({SAVE_AS}), then `python -m corpus.testset review import {a.lang}`")
     elif a.cmd == "review":
         edited, signed = review_import(a.lang)

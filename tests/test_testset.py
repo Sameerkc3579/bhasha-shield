@@ -372,6 +372,18 @@ def test_a_reviewer_without_a_code_blocks_the_freeze(repo):
         T.build(["en", "hi", "hi_latn"])
 
 
+def test_a_reviewer_may_sign_with_their_code(repo):
+    # Signing "R2" instead of the name keeps names out of provenance.jsonl, which is public too.
+    _verify_everything()
+    _review_all("hi", who="R2")
+    T.build(["en", "hi", "hi_latn"])
+    hi = [json.loads(l) for l in (T.OUT / "hi.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert {r["verified_by"] for r in hi if r["kind"] == "v1_benign"} == {"R2"}
+    _review_all("hi", who="R9")            # a code nobody holds is not a reviewer
+    with pytest.raises(SystemExit, match="R9"):
+        T.build(["en", "hi", "hi_latn"])
+
+
 def test_build_is_byte_identical_when_repeated(repo):
     _verify_everything()
     T.build(["en", "hi", "hi_latn"])
