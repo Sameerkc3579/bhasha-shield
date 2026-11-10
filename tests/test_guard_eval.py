@@ -198,3 +198,14 @@ def test_paired_difference_is_zero_against_itself():
     rows = rows_for({})
     d = G.paired_diff(rows, rows, 0.5, 0.5, iters=200)
     assert d == {"diff": 0.0, "ci": [0.0, 0.0], "goals": d["goals"]} and d["goals"] > 0
+
+
+def test_compare_calibration_flags_any_changed_point():
+    point = {"threshold": 0.9, "fpr_k": 2, "fpr_n": 150, "tpr_k": 40, "tpr_n": 91}
+    v1 = {"langs": {"en": {"auc": 0.91, **{p: dict(point) for p in ("shipped", "calibrated", "matched")}}}}
+    same = E.compare_calibration(json.loads(json.dumps(v1)), v1)
+    assert [r["same"] for r in same] == [True]
+    moved = json.loads(json.dumps(v1))
+    moved["langs"]["en"]["calibrated"]["tpr_k"] = 41
+    rows = E.compare_calibration(moved, v1)
+    assert rows[0]["same"] is False and rows[0]["calibrated.tpr_k"] == (40, 41)

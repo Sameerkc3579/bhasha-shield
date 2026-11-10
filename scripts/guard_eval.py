@@ -132,8 +132,9 @@ def compare_calibration(fresh: dict, v1: dict) -> list[dict]:
         for point in ("shipped", "calibrated", "matched"):
             for k in CAL_FIELDS:
                 row[f"{point}.{k}"] = (o[point][k], f[point][k])
+        pairs = [v for k, v in row.items() if "." in k]
         row["same"] = (o["auc"] == f["auc"] or abs((o["auc"] or 0) - (f["auc"] or 0)) < 1e-9) and all(
-            a == b or (isinstance(a, float) and abs(a - b) < 1e-6) for k, (a, b) in row.items() if "." in k)
+            a == b or (isinstance(a, float) and abs(a - b) < 1e-6) for a, b in pairs)
         out.append(row)
     return out
 
