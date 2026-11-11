@@ -93,6 +93,28 @@ def test_kinds_filter_scores_only_those_kinds(repo):
     assert kinds == {"v1_payload"}
 
 
+def test_main_frees_one_model_before_loading_the_next(repo, monkeypatch):
+    """8 GB laptop: two classifiers in memory at once got the 11-10 run killed."""
+    import gc
+    import sys
+    import weakref
+
+    import defenses.registry as R
+
+    alive, real = [], R.build
+
+    def one_at_a_time(name, **kw):
+        gc.collect()
+        assert all(r() is None for r in alive), "previous model still in memory"
+        d = real("protectai_deberta", scorer=keyword_scorer)
+        alive.append(weakref.ref(d))
+        return d
+
+    monkeypatch.setattr(R, "build", one_at_a_time)
+    monkeypatch.setattr(sys, "argv", ["guard_eval", "--set", "pilot", "--langs", "en", "--defenses", "a", "b"])
+    assert E.main() == 0 and len(alive) == 2
+
+
 def test_v1_views_feed_v1_calibration_unchanged(repo):
     """The reproduction runs v1's own calibrate() on fresh scores, so v1 numbers compare 1:1."""
     rows = json.loads(E.run("protectai_deberta", "en", "pilot",

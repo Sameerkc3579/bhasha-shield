@@ -22,6 +22,7 @@ Scores: `analysis/out/guard_eval/{set}/{lang}__{defense}.json`.
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import time
 from pathlib import Path
@@ -203,6 +204,8 @@ def main() -> int:
             d = json.loads(p.read_text(encoding="utf-8"))
             print(f"{lang:<9}{name:<30}{len(d['scores']):>5} items, {d['scored_now']} scored now "
                   f"({d['seconds']:.0f}s) -> {p}", flush=True)
+        del defense  # free this model before the next loads: two at once do not fit in 8 GB
+        gc.collect()
         if args.reproduce_v1:
             print_reproduction(reproduce_v1(name, args.langs, args.set))
     return 0
