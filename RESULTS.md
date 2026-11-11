@@ -1284,4 +1284,34 @@ only edited lines; reviewers may sign with their code). English benign review: 3
 
 ---
 
+## 2026-11-11 — v2 Phase 3 step 1: v1's transliterate-first ProtectAI numbers reproduce too
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`, one language per process),
+`translit+protectai_deberta` (rule-based Devanagari -> Latin, then
+`protectai/deberta-v3-base-prompt-injection-v2`). Spend: **Rs 0**. This is the run that the 11-10
+entry lists as not done.
+
+Scored with `python -m scripts.guard_eval --set pilot --defenses translit+protectai_deberta --kinds
+v1_embedded v1_payload v1_benign --langs <lang>` (en 470 s, hi 404 s, hi_latn 421 s, mixed 315 s),
+then `reproduce_v1` on the saved scores. Report:
+`analysis/out/guard_eval/pilot/reproduce_v1__translit+protectai_deberta.json`.
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items compared | 485 | 485 | 485 | 485 |
+| largest score difference | 4e-6 | 5e-6 | 6e-6 | 1.2e-5 |
+| AUC, embedded (v1 -> now) | 0.7305 -> 0.7305 | 0.6065 -> 0.6065 | 0.7084 -> 0.7084 | 0.6965 -> 0.6965 |
+| own threshold at 5% FPR: FPR, TPR | 3/151, 2/91 | 9/151, 4/91 | 2/151, 2/91 | 0/151, 1/91 |
+
+- **Reproduced:** no item drifted beyond 1e-4, no text changed, nothing missing; every calibration
+  point is identical, and the English threshold is the same (0.999995). Like the 11-10 entry, these
+  are v1 numbers re-derived, not new results.
+- **Why the 11-10 job died:** with two `--defenses`, `guard_eval` kept the first model in memory while
+  it loaded the second. Fixed (each model is freed before the next loads), with a test.
+
+**Phase 3 step 1 still open:** PromptGuard 2, which needs the Hugging Face login (gated model, free).
+**Tests:** 344 passed, 3 skipped.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
