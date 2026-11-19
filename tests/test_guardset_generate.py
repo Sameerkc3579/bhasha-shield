@@ -97,6 +97,21 @@ def test_every_stage_resumes_without_resending(work):
     assert again.sent == 0 and items["hi"]
 
 
+def test_a_changed_prompt_is_resent_not_served_from_the_cache(work):
+    # A session that ran LLM-only, then re-run with IndicTrans2 drafts: hi gets new prompts, and
+    # hi_latn/mixed (whose prompts carry the hi text) follow; nothing stale is reused.
+    G.stage_payloads(G.FakeBackend())
+    seeds = G.payloads(G.load_goals(), G.load_templates())
+    drafts = {p.seed_id: "मसौदा " + p.text for p in seeds[:10]}
+    again = Counting()
+    loc = G.stage_payloads(again, drafts_hi=drafts)
+    assert again.sent >= 10 and again.sent < 3 * len(seeds)
+    assert all(loc[f"hi|{k}"]["draft"] == v for k, v in drafts.items())
+    third = Counting()
+    G.stage_payloads(third, drafts_hi=drafts)
+    assert third.sent == 0
+
+
 def test_rejected_outputs_are_kept_out_and_counted(work, monkeypatch):
     class LosesTokens(G.FakeBackend):
         def __call__(self, prompts, *, temperature, seed):

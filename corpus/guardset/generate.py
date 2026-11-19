@@ -212,6 +212,10 @@ def _h(*parts) -> int:
     return int(hashlib.sha256("|".join(map(str, parts)).encode("utf-8")).hexdigest()[:12], 16)
 
 
+def _sha(prompt: str) -> str:
+    return hashlib.sha256(prompt.encode()).hexdigest()[:12]
+
+
 def _cache(name: str) -> dict[str, dict]:
     p = WORK / f"{name}.jsonl"
     if not p.exists():
@@ -229,9 +233,10 @@ def _append(name: str, rows: list[dict]) -> None:
 def _run(name: str, requests: list[dict], backend: Backend, *, check: Callable[[dict, str], list[str]],
          temperature: float, batch: int = 64, retries: int = 2) -> dict[str, dict]:
     """Send every request not yet cached; keep outputs that pass `check`, retry the rest with a new
-    seed; after the last retry a failing output is stored with its reasons (counted, never used)."""
+    seed; after the last retry a failing output is stored with its reasons (counted, never used).
+    A cached row counts only for the same prompt: a new draft or upstream text resends it."""
     done = _cache(name)
-    todo = [r for r in requests if r["key"] not in done]
+    todo = [r for r in requests if done.get(r["key"], {}).get("prompt_sha") != _sha(r["prompt"])]
     for attempt in range(retries + 1):
         if not todo:
             break
@@ -247,7 +252,7 @@ def _run(name: str, requests: list[dict], backend: Backend, *, check: Callable[[
                     continue
                 rows.append({**{k: v for k, v in r.items() if k != "prompt"}, "text": o.strip(), "rejected": why,
                              "model": backend.model_id, "attempt": attempt,
-                             "prompt_sha": hashlib.sha256(r["prompt"].encode()).hexdigest()[:12]})
+                             "prompt_sha": _sha(r["prompt"])})
             _append(name, rows)
         todo = failed
     return _cache(name)
