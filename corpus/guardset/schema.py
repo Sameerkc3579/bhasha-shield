@@ -25,6 +25,11 @@ def norm_family(name: str) -> str:
     return re.sub(r"[\s_\-]+", "_", name.strip().lower())
 
 
+def base_family(name: str) -> str:
+    """'native/hi/bank_alert' -> 'bank_alert': the style, whatever language it was written in."""
+    return norm_family(name).rsplit("/", 1)[-1]
+
+
 class GuardItem(BaseModel):
     item_id: str
     text: str
@@ -78,11 +83,11 @@ class Exclusions:
 
     def violations(self, items: list[GuardItem]) -> list[str]:
         """A clash is a generator bug, so it is refused (reported), never silently dropped."""
-        fams = {norm_family(f) for f in self.families}
+        fams = {base_family(f) for f in self.families}
         out = []
         for it in items:
             if it.goal and it.goal in self.goals:
                 out.append(f"{it.item_id}: goal {it.goal} is a test-set goal")
-            if it.label == "injection" and it.family and norm_family(it.family) in fams:
+            if it.label == "injection" and it.family and base_family(it.family) in fams:
                 out.append(f"{it.item_id}: family {it.family} is a test-set template family")
         return out

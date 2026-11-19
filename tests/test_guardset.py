@@ -92,6 +92,16 @@ def test_a_test_goal_or_family_is_refused_not_dropped():
     assert ex.violations([ok.model_copy(update={"family": "Important-Instructions"})])
 
 
+def test_a_native_test_family_blocks_its_base_name_in_any_language():
+    # The frozen set names native families per language ("native/hi/bank_alert"): the style itself
+    # is the test family, so a training family called "bank_alert" (or "native/mixed/bank-alert") clashes.
+    ex = Exclusions(families={"native/hi/bank_alert"})
+    ok = positive("fam_urgent", "guard/upi_0001")
+    for name in ("bank_alert", "Bank-Alert", "native/mixed/bank_alert"):
+        assert ex.violations([ok.model_copy(update={"family": name})]), name
+    assert ex.violations([ok.model_copy(update={"family": "bank_alert_v2"})]) == []
+
+
 # --------------------------------------------------------------------------- split
 
 def test_split_never_shares_a_goal_or_family_between_train_and_validation():
