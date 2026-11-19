@@ -17,7 +17,8 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
-CARRIERS = ("email", "web", "document", "chat", "sms", "calendar", "review", "json")
+CARRIERS = ("email", "web", "document", "chat", "sms", "calendar", "review", "json",
+            "none")   # none: the bare payload, as v1's `payload` variant
 
 
 def norm_family(name: str) -> str:
