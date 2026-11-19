@@ -1343,4 +1343,28 @@ note in docs/v2-plan.md, Phase 1. The test set is not frozen yet. **Tests:** 345
 
 ---
 
+## 2026-11-19 — Gate G1: the v2 test set is frozen
+
+`python -m corpus.testset build` wrote `corpus/testset/v2/` with 0 problems; the SHA-256 of each file
+is pinned in `tests/test_testset_hash.py` (both tests pass; a second build is byte-identical).
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items | 485 | 785 | 785 | 785 |
+| attack positives, calibration / test half | 73 / 112 | 176 / 259 | 178 / 257 | 178 / 257 |
+| benign, calibration / test half | 149 / 151 | 175 / 175 | 169 / 181 | 170 / 180 |
+
+Kinds per language: v1 embedded 150, v1 payload 35, v1 benign 300; for hi, hi_latn and mixed also
+enframe 150, native embedded 50, native payload 50 and native benign 50. Goals: 14 calibration,
+21 test, none in both. 54 template families in the manifest.
+
+- **G1 check:** every row has `verified_by` (codes `R1` and `AgentDojo` only; no reviewer name in any
+  frozen file), the hashes are committed, and the hash test passes.
+- **The native items (150 rows per non-English language, built from 100 texts) are LLM-drafted**
+  (`source: native_draft/claude-opus-5-5`), checked by R1, not human-written; see DATASHEET.md and
+  the Phase 1 note in docs/v2-plan.md.
+- `manifest.json` sha256 `70329a54…`; file hashes in the test.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->

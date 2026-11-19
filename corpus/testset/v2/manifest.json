@@ -1,0 +1,232 @@
+{
+ "counts": {
+  "en": {
+   "v1_benign": {
+    "calibration": 149,
+    "test": 151
+   },
+   "v1_embedded": {
+    "calibration": 59,
+    "test": 91
+   },
+   "v1_payload": {
+    "calibration": 14,
+    "test": 21
+   }
+  },
+  "hi": {
+   "enframe_embedded": {
+    "calibration": 59,
+    "test": 91
+   },
+   "native_benign": {
+    "calibration": 26,
+    "test": 24
+   },
+   "native_embedded": {
+    "calibration": 22,
+    "test": 28
+   },
+   "native_payload": {
+    "calibration": 22,
+    "test": 28
+   },
+   "v1_benign": {
+    "calibration": 149,
+    "test": 151
+   },
+   "v1_embedded": {
+    "calibration": 59,
+    "test": 91
+   },
+   "v1_payload": {
+    "calibration": 14,
+    "test": 21
+   }
+  },
+  "hi_latn": {
+   "enframe_embedded": {
+    "calibration": 59,
+    "test": 91
+   },
+   "native_benign": {
+    "calibration": 20,
+    "test": 30
+   },
+   "native_embedded": {
+    "calibration": 23,
+    "test": 27
+   },
+   "native_payload": {
+    "calibration": 23,
+    "test": 27
+   },
+   "v1_benign": {
+    "calibration": 149,
+    "test": 151
+   },
+   "v1_embedded": {
+    "calibration": 59,
+    "test": 91
+   },
+   "v1_payload": {
+    "calibration": 14,
+    "test": 21
+   }
+  },
+  "mixed": {
+   "enframe_embedded": {
+    "calibration": 59,
+    "test": 91
+   },
+   "native_benign": {
+    "calibration": 21,
+    "test": 29
+   },
+   "native_embedded": {
+    "calibration": 23,
+    "test": 27
+   },
+   "native_payload": {
+    "calibration": 23,
+    "test": 27
+   },
+   "v1_benign": {
+    "calibration": 149,
+    "test": 151
+   },
+   "v1_embedded": {
+    "calibration": 59,
+    "test": 91
+   },
+   "v1_payload": {
+    "calibration": 14,
+    "test": 21
+   }
+  }
+ },
+ "families": [
+  "important_instructions",
+  "native/hi/bank_alert",
+  "native/hi/boss_request",
+  "native/hi/college_notice",
+  "native/hi/courier",
+  "native/hi/cyber_police",
+  "native/hi/donation_appeal",
+  "native/hi/family_emergency",
+  "native/hi/friend_favour",
+  "native/hi/hidden_note",
+  "native/hi/kyc_update",
+  "native/hi/policy_update",
+  "native/hi/prize_offer",
+  "native/hi/rbi_notice",
+  "native/hi/system_notice",
+  "native/hi/tax_notice",
+  "native/hi/tech_support",
+  "native/hi_latn/bank_alert",
+  "native/hi_latn/boss_request",
+  "native/hi_latn/college_notice",
+  "native/hi_latn/courier",
+  "native/hi_latn/cyber_police",
+  "native/hi_latn/donation_appeal",
+  "native/hi_latn/family_emergency",
+  "native/hi_latn/friend_favour",
+  "native/hi_latn/hidden_note",
+  "native/hi_latn/job_offer",
+  "native/hi_latn/kyc_update",
+  "native/hi_latn/policy_update",
+  "native/hi_latn/prize_offer",
+  "native/hi_latn/rbi_notice",
+  "native/hi_latn/system_notice",
+  "native/hi_latn/tax_notice",
+  "native/hi_latn/tech_support",
+  "native/hi_latn/utility_bill",
+  "native/mixed/bank_alert",
+  "native/mixed/college_notice",
+  "native/mixed/courier",
+  "native/mixed/cyber_police",
+  "native/mixed/donation_appeal",
+  "native/mixed/fake_boss",
+  "native/mixed/family_emergency",
+  "native/mixed/friend_favour",
+  "native/mixed/hidden_note",
+  "native/mixed/investment_tip",
+  "native/mixed/job_offer",
+  "native/mixed/kyc_update",
+  "native/mixed/policy_update",
+  "native/mixed/prize_offer",
+  "native/mixed/review_seller",
+  "native/mixed/system_override",
+  "native/mixed/tax_notice",
+  "native/mixed/tech_support",
+  "native/mixed/utility_bill"
+ ],
+ "files": {
+  "en.jsonl": "e0c1fd8642294799feb0964f759844471ebe5a86cc51465c339d23173e4d17a9",
+  "hi.jsonl": "b406bb5da51a0bbc8998909c2eb8ca2d02ac7b03b8c1186879c3a31915356d03",
+  "hi_latn.jsonl": "d69e978ae10b9fa5ae7a184ee6d6966284064a3aa84f6707d280c2f8ab5951b1",
+  "mixed.jsonl": "b4f41754af36d5c38399d1f4f87e1d912771962e7397d6f05ad1ef4a39921f3e"
+ },
+ "goals": {
+  "calibration": [
+   "banking/injection_task_1",
+   "banking/injection_task_3",
+   "slack/injection_task_1",
+   "slack/injection_task_2",
+   "slack/injection_task_3",
+   "slack/injection_task_4",
+   "travel/injection_task_1",
+   "travel/injection_task_3",
+   "travel/injection_task_4",
+   "travel/injection_task_6",
+   "workspace/injection_task_10",
+   "workspace/injection_task_12",
+   "workspace/injection_task_3",
+   "workspace/injection_task_8"
+  ],
+  "test": [
+   "banking/injection_task_0",
+   "banking/injection_task_2",
+   "banking/injection_task_4",
+   "banking/injection_task_5",
+   "banking/injection_task_6",
+   "banking/injection_task_7",
+   "banking/injection_task_8",
+   "slack/injection_task_5",
+   "travel/injection_task_0",
+   "travel/injection_task_2",
+   "travel/injection_task_5",
+   "workspace/injection_task_0",
+   "workspace/injection_task_1",
+   "workspace/injection_task_11",
+   "workspace/injection_task_13",
+   "workspace/injection_task_2",
+   "workspace/injection_task_4",
+   "workspace/injection_task_5",
+   "workspace/injection_task_6",
+   "workspace/injection_task_7",
+   "workspace/injection_task_9"
+  ]
+ },
+ "langs": [
+  "en",
+  "hi",
+  "hi_latn",
+  "mixed"
+ ],
+ "native_sources": {
+  "hi": {
+   "native_draft/claude-opus-5-5": 150
+  },
+  "hi_latn": {
+   "native_draft/claude-opus-5-5": 150
+  },
+  "mixed": {
+   "native_draft/claude-opus-5-5": 150
+  }
+ },
+ "pilot": false,
+ "problems_at_build": 0,
+ "salt": "calib-2026",
+ "version": 1
+}

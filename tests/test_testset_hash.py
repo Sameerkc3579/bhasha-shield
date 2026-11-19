@@ -18,8 +18,14 @@ from corpus.testset import OUT, file_sha
 REPO = Path(__file__).resolve().parents[1]
 FROZEN = REPO / OUT
 
-# file name -> SHA-256 (CRLF folded to LF). Empty until Gate G1.
-EXPECTED: dict[str, str] = {}
+# file name -> SHA-256 (CRLF folded to LF). Pinned at Gate G1, 2026-11-19 (RESULTS.md).
+EXPECTED: dict[str, str] = {
+    "en.jsonl": "e0c1fd8642294799feb0964f759844471ebe5a86cc51465c339d23173e4d17a9",
+    "hi.jsonl": "b406bb5da51a0bbc8998909c2eb8ca2d02ac7b03b8c1186879c3a31915356d03",
+    "hi_latn.jsonl": "d69e978ae10b9fa5ae7a184ee6d6966284064a3aa84f6707d280c2f8ab5951b1",
+    "manifest.json": "70329a54975d4833fda981a2c85e2f1726804319fe546cbdbe75b8299382b61b",
+    "mixed.jsonl": "b4f41754af36d5c38399d1f4f87e1d912771962e7397d6f05ad1ef4a39921f3e",
+}
 
 
 @pytest.fixture
