@@ -188,6 +188,8 @@ The test set is what every claim stands on. It must be human-verified and must n
 2. **Human-review all non-English benign test items.** In v1 they were machine-drafted, which made the false-positive side a pilot. This step fixes that.
 3. Hand-write **native** attacks: 30–50 per language, phrased the way a native speaker would try to persuade, not translated from English. Include Hinglish.
 4. Hand-write native adversarial-benign items, about 50 per language: Hindi security notices that quote an attack, harmless instructions, recipes, and how-tos.
+
+   **Changed 2026-11-19 (steps 3–4):** the 300 native texts (50 templates + 50 benign per language for hi, hi_latn and mixed) were **drafted by an LLM (Claude, `claude-opus-5-5`) and checked by reviewer R1**, not hand-written. Provenance records them as `machine+human` with `drafted=claude-opus-5-5`, and the frozen rows say `source: native_draft/claude-opus-5-5`. Consequences: the paper and dataset card must say this; the test set can no longer be called human-written; and since the guard's training data is also LLM-generated, a high score on these items may partly reflect shared generator style (the risk in the table below). The hi_latn and mixed files largely parallel the hi file's scenarios, so they are not independent samples. Human-written items, if any are added later, are reported separately.
 5. Use v1's stable 50/50 split by attacker goal (`analysis/calibrate.py`): the **calibration half** is for thresholds, the **test half** is for reported numbers.
 6. Hash the frozen files and add a test that fails if the hash changes.
 
