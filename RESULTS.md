@@ -1314,4 +1314,33 @@ then `reproduce_v1` on the saved scores. Report:
 
 ---
 
+## 2026-11-19 — v2 Phase 3 step 1 done: v1's PromptGuard 2 numbers reproduce
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`, one language per process),
+`meta-llama/Llama-Prompt-Guard-2-86M` (gated, free; Hugging Face login added today). Spend: **Rs 0**.
+
+Scored with `python -m scripts.guard_eval --set pilot --defenses promptguard2 --kinds v1_embedded
+v1_payload v1_benign --langs <lang>` (en 365 s, hi 352 s, hi_latn 407 s, mixed 442 s), then
+`reproduce_v1` on the saved scores. Report: `analysis/out/guard_eval/pilot/reproduce_v1__promptguard2.json`.
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items compared | 485 | 485 | 485 | 485 |
+| largest score difference | 0 | 0 | 0 | 0 |
+| AUC, embedded (v1 -> now) | 0.9402 -> 0.9402 | 0.9808 -> 0.9808 | 0.9921 -> 0.9921 | 0.9557 -> 0.9557 |
+| own threshold at 5% FPR: FPR, TPR | 5/151, 0/91 | 3/151, 46/91 | 1/151, 72/91 | 2/151, 2/91 |
+
+- **Reproduced:** every score is identical to v1's, every calibration point is identical, and the English
+  threshold is the same (0.994363). With the 11-10 (ProtectAI) and 11-11 (transliterate-first) entries,
+  all three v1 classifiers now reproduce from the v2 pipeline: **Phase 3 step 1 is done.** These are v1
+  numbers re-derived, not new results.
+
+**Phase 1 the same day:** the benign review is complete (hi, hi_latn, mixed signed R1 with no edits:
+300/300 in all four languages). The 300 native texts (50 templates + 50 benign for each of hi,
+hi_latn and mixed) were **drafted by an LLM (claude-opus-5-5) and checked by R1**, at the user's
+request, and are recorded that way (provenance `machine+human`, `drafted=claude-opus-5-5`); see the
+note in docs/v2-plan.md, Phase 1. The test set is not frozen yet. **Tests:** 345 passed, 3 skipped.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
