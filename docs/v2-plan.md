@@ -207,6 +207,8 @@ The goal is a large, varied, labelled training set that **shares nothing** with 
 6. Create negatives:
     - ordinary text from openly licensed Indic sources, wrapped in the same carriers
     - generated adversarial-benign text that sounds like an instruction but is harmless
+
+   **Status 2026-11-19:** the generator (`corpus/guardset/generate.py`, `notebooks/guardset_colab.ipynb`) writes the ordinary carrier texts with the LLM too; no external Indic corpus is used until the G0 licence table names one (its licence must allow redistribution under the dataset's terms).
 7. Augment with homoglyphs, zero-width characters and script mixing (reusing `corpus/adaptive.py`).
 8. Clean up:
     - MinHash dedup
