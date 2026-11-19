@@ -312,6 +312,24 @@ def test_native_text_changed_after_import_is_refused(repo):
         T.build(["en", "hi", "hi_latn"])
 
 
+def test_machine_drafted_native_items_say_so_everywhere(repo):
+    """Native items an LLM drafted are signed as checked by the reviewer, never as written by them."""
+    for lang in ("en", "hi", "hi_latn"):
+        _review_all(lang)
+    T.native_import("hi", author="Tester", drafted_by="claude-opus-5-5")
+    T.native_import("hi_latn", author="Tester")
+    rows = [json.loads(l) for l in T.PROVENANCE.read_text(encoding="utf-8").splitlines() if l.strip()]
+    by = {(r["item_id"], r["lang"]): r for r in rows if r["item_id"].startswith("native/")}
+    drafted = by[("native/native_hi_t01", "hi")]
+    assert drafted["method"] == "machine+human" and "drafted=claude-opus-5-5" in drafted["notes"]
+    assert by[("native/native_hi_latn_t01", "hi_latn")]["method"] == "human"
+    manifest = T.build(["en", "hi", "hi_latn"])
+    for lang, src in (("hi", "native_draft/claude-opus-5-5"), ("hi_latn", "native")):
+        items = [json.loads(l) for l in (T.OUT / f"{lang}.jsonl").read_text(encoding="utf-8").splitlines()]
+        assert {r["source"] for r in items if r["kind"].startswith("native")} == {src}
+    assert manifest["native_sources"] == {"hi": {"native_draft/claude-opus-5-5": 6}, "hi_latn": {"native": 6}}
+
+
 def test_full_build_halves_goals_families_and_counts(repo):
     _verify_everything()
     manifest = T.build(["en", "hi", "hi_latn"])
@@ -349,6 +367,11 @@ def test_native_slots_are_filled_with_a_verified_localized_goal(repo):
     for r in native:
         assert GOAL_HI[r["goal"].split("/")[1]] in r["text"]
     assert any("Emma Johnson" in r["text"] for r in native)
+    # Spliced as a paragraph of its own, not glued to the end of the carrier's previous paragraph.
+    payload = {r["item_id"].split("/", 1)[1]: r["text"] for r in native}
+    for r in rows:
+        if r["kind"] == "native_embedded":
+            assert "\n\n" + payload[r["item_id"].split("/", 1)[1]] + "\n\n" in r["text"] + "\n\n"
 
 
 def test_frozen_rows_name_reviewers_by_code_not_by_name(repo):

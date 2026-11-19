@@ -146,6 +146,7 @@ class Status:
     state: Literal["verified", "unverified", "changed", "stale", "not imported", "invalid"]
     verified_by: str | None = None
     verified_at: str | None = None
+    drafted: str | None = None   # native item an LLM drafted (the signer checked it, did not write it)
 
 
 # --------------------------------------------------------------------------
@@ -402,12 +403,18 @@ def native_status(lang: str, entries: list[NativeEntry], idx: dict | None = None
         elif note_fields(last.notes).get("sha") != sha(e.text):
             out[e.id] = Status("changed")
         else:
-            out[e.id] = Status("verified", last.verified_by, last.verified_at)
+            out[e.id] = Status("verified", last.verified_by, last.verified_at,
+                               note_fields(last.notes).get("drafted"))
     return out
 
 
-def native_import(lang: str, *, author: str) -> int:
-    """Stamp the author as verifier of every native item whose text is new or changed."""
+def native_import(lang: str, *, author: str, drafted_by: str | None = None) -> int:
+    """Stamp the author as verifier of every native item whose text is new or changed.
+
+    `drafted_by` (a model id) records that an LLM drafted the texts and `author` checked them: the
+    provenance method is then machine+human and the frozen rows say `source: native_draft/<model>`,
+    so no paper or card can present them as human-written.
+    """
     attacks, benign, problems = native_entries(lang)
     if problems:
         raise SystemExit(f"{lang} native files have problems; nothing imported:\n  " + "\n  ".join(problems))
@@ -418,8 +425,13 @@ def native_import(lang: str, *, author: str) -> int:
         if status[e.id].state == "verified":
             continue
         what = f"family={e.meta['family']}" if e.kind == "attack" else f"tool={e.meta['tool']}"
-        record(f"native/{e.id}", lang, "human", verified_by=author, verified_at=stamp,
-               notes=f"native {e.kind}: written in {lang}; sha={sha(e.text)}; {what}", path=PROVENANCE)
+        if drafted_by:
+            record(f"native/{e.id}", lang, "machine+human", verified_by=author, verified_at=stamp,
+                   notes=f"native {e.kind}: drafted in {lang} by an LLM, checked by the signer; sha={sha(e.text)}; "
+                         f"{what}; drafted={drafted_by}", path=PROVENANCE)
+        else:
+            record(f"native/{e.id}", lang, "human", verified_by=author, verified_at=stamp,
+                   notes=f"native {e.kind}: written in {lang}; sha={sha(e.text)}; {what}", path=PROVENANCE)
         n += 1
     return n
 
@@ -522,26 +534,31 @@ def collect(lang: str, *, pilot: bool = False) -> tuple[list[FrozenItem], list[s
             text = e.text.replace("{goal}", goal_text[g]).replace("{user}", USER_NAME)
             carrier = carriers[_h(e.id) % len(carriers)]
             author = (nstatus[e.id].verified_by, nstatus[e.id].verified_at)
+            src = _native_source(nstatus[e.id])
             family = f"native/{lang}/{e.meta['family']}"
             by, at = _who(author, goal_who[g])
             items.append(FrozenItem(item_id=f"native_payload/{e.id}", lang=lang, label="injection",
                                     kind="native_payload", half=half(g), text=text, goal=g, family=family,
-                                    source="native", verified_by=by, verified_at=at))
+                                    source=src, verified_by=by, verified_at=at))
             by, at = _who(author, goal_who[g], bstate[carrier.item_id])
             items.append(FrozenItem(item_id=f"native_embedded/{e.id}", lang=lang, label="injection",
-                                    kind="native_embedded", half=half(g), text=embed(carrier.content, text),
+                                    kind="native_embedded", half=half(g), text=embed(carrier.content, "\n\n" + text),
                                     goal=g, family=family, carrier=carrier.item_id, tool_name=carrier.tool_name,
-                                    source="native", verified_by=by, verified_at=at))
+                                    source=src, verified_by=by, verified_at=at))
         for e in nbenign:
             st = nstatus[e.id]
             items.append(FrozenItem(item_id=e.id, lang=lang, label="benign", kind="native_benign",
                                     half=half(e.id), text=e.text, tool_name=f"native.{e.meta.get('tool', '')}",
-                                    adversarial_benign=True, source="native",
+                                    adversarial_benign=True, source=_native_source(st),
                                     verified_by=st.verified_by, verified_at=st.verified_at))
 
     items, missing = anonymize(items)
     problems += [f"reviewer {n!r}: no code in {REVIEWERS} (add one, e.g. \"R2\")" for n in sorted(missing)]
     return sorted(items, key=lambda i: i.item_id), problems
+
+
+def _native_source(st: Status) -> str:
+    return f"native_draft/{st.drafted}" if st.drafted else "native"
 
 
 def reviewer_codes() -> dict[str, str]:
@@ -581,6 +598,7 @@ def build(langs: list[str] | tuple[str, ...] = LANGS_V2, *, pilot: bool = False)
     goals: dict[str, set[str]] = {"calibration": set(), "test": set()}
     families: set[str] = set()
     files: dict[str, str] = {}
+    native_sources: dict[str, dict[str, int]] = {}
     for lang, (items, _) in collected.items():
         path = out / f"{lang}.jsonl"
         _write(path, "".join(i.model_dump_json() + "\n" for i in items))
@@ -593,9 +611,12 @@ def build(langs: list[str] | tuple[str, ...] = LANGS_V2, *, pilot: bool = False)
             if i.family:
                 families.add(i.family)
         counts[lang] = dict(sorted(c.items()))
+        src = Counter(i.source for i in items if i.kind.startswith("native"))
+        if src:
+            native_sources[lang] = dict(sorted(src.items()))
     manifest = {"version": 1, "pilot": pilot, "salt": SALT, "langs": list(langs), "counts": counts,
                 "goals": {h: sorted(v) for h, v in goals.items()}, "families": sorted(families),
-                "files": files, "problems_at_build": len(problems)}
+                "native_sources": native_sources, "files": files, "problems_at_build": len(problems)}
     _write(out / "manifest.json", json.dumps(manifest, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
     return manifest
 
@@ -636,6 +657,7 @@ def main(argv: list[str] | None = None) -> int:
     n.add_argument("action", choices=["check", "import"])
     n.add_argument("lang", choices=NATIVE_LANGS)
     n.add_argument("--author")
+    n.add_argument("--drafted-by", help="model id, when an LLM drafted the texts and --author checked them")
     b = sub.add_parser("build")
     b.add_argument("--langs", nargs="+", default=list(LANGS_V2))
     b.add_argument("--pilot", action="store_true")
@@ -661,7 +683,9 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "native":
         if not a.author:
             ap.error("native import needs --author \"Your Name\"")
-        print(f"{a.lang}: {native_import(a.lang, author=a.author)} native items signed by {a.author}")
+        n = native_import(a.lang, author=a.author, drafted_by=a.drafted_by)
+        how = f" (drafted by {a.drafted_by}, checked)" if a.drafted_by else ""
+        print(f"{a.lang}: {n} native items signed by {a.author}{how}")
     else:
         m = build(a.langs, pilot=a.pilot)
         where = PILOT if a.pilot else OUT
