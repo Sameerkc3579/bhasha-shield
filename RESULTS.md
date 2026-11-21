@@ -1367,4 +1367,32 @@ enframe 150, native embedded 50, native payload 50 and native benign 50. Goals: 
 
 ---
 
+## 2026-11-22 — v2 Phase 2: first generation run discarded (generator bug)
+
+The first Colab run of `notebooks/guardset_colab.ipynb` (Qwen2.5-14B-Instruct-AWQ, revision
+`53953585…`) finished, but its output is not used. Its archive `guardset_drafts.tgz` is kept locally,
+not committed. Counts come from its `work/*.jsonl` files, run through the checks added the same day.
+
+- **Prompt markers echoed.** The prompts carried `<<lang:…>>` / `<<text>>` markers meant for the fake
+  backend, and the model copied them into its replies: 684 of 720 hi payloads, 552 of 715 hi_latn, 666 of
+  715 mixed, 199 of 320 carrier texts, 196 of 320 adversarial-benign texts. No check looked for them.
+- **The keep-list was repeated** at the end of the text ("… 4,999, refund.desk@okaxis."): 150 hi, 276
+  hi_latn, 259 mixed payloads.
+- **"Code-mixed" text that is plain English.** 286 of 715 mixed payloads fall below the new Hindi-word
+  share cutoff (0.06; English texts of the same run score at most 0.031), and so do 77 carrier texts and
+  84 adversarial-benign texts, nearly all of them mixed.
+- **IndicTrans2 drafts were made (720) but not used.** The hi payloads came from an earlier LLM-only
+  session's cache, which was keyed by seed id only.
+- With the markers stripped, the new checks would still reject 163 of 720 hi, 323 of 715 hi_latn and
+  459 of 715 mixed payloads, so stripping cannot rescue the run. It is regenerated instead.
+
+Fixes (`corpus/guardset/generate.py`): prompts are a system turn plus a user turn holding only the
+text, with no markup. New checks: prompt echo, repeated tokens, Hindi-word share (hi_latn 0.10,
+mixed 0.06), Devanagari in English, JSON carriers must parse. A whole-output code fence is
+unwrapped and recorded. A cached row counts only for an identical prompt. Rejection reasons now go
+into `generate_report.json`. Benign topics doubled (80 ordinary, 40 adversarial-benign seeds), which
+gives 320 benign texts per language.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
