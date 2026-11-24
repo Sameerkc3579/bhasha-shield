@@ -49,3 +49,5 @@ analysis/out/phase1_results_entry.md
 # v2 Phase 1 working files: the pilot build and the review sheets (provenance.jsonl is the record).
 corpus/testset/pilot/
 corpus/review/testset_*.csv
+# v2 Phase 2: the G2 sample sheets carry dataset text (the verdicts are committed).
+corpus/guardset/review/packs/
