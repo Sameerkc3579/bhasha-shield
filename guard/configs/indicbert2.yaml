@@ -1,0 +1,3 @@
+# Phase 3 candidate: IndicBERT v2. Licence and exact checkpoint: docs/licences.md (open G0 question).
+name: indicbert2
+base_model: ai4bharat/IndicBERTv2-MLM-only

@@ -26,6 +26,7 @@ _SPECS: dict[str, tuple[str, bool]] = {
     "promptguard2": ("defenses.classifiers.promptguard2:PromptGuard2", False),
     "protectai_deberta": ("defenses.classifiers.protectai_deberta:ProtectAIDeberta", False),
     "xlmr_finetuned": ("defenses.classifiers.xlmr_finetuned:XLMRFinetuned", False),
+    "bhasha_guard": ("defenses.classifiers.bhasha_guard:BhashaGuard", False),   # v2
     # B -- prompting
     "spotlight": ("defenses.prompting.spotlight:Spotlight", False),
     "sandwich": ("defenses.prompting.sandwich:Sandwich", False),
@@ -37,7 +38,7 @@ _SPECS: dict[str, tuple[str, bool]] = {
 }
 
 DEFENSES: tuple[str, ...] = tuple(n for n in _SPECS if n != "undefended")
-CLASSIFIERS: tuple[str, ...] = ("promptguard2", "protectai_deberta", "xlmr_finetuned")
+CLASSIFIERS: tuple[str, ...] = ("promptguard2", "protectai_deberta", "xlmr_finetuned", "bhasha_guard")
 
 
 def is_known(name: str) -> bool:

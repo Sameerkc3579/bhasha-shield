@@ -21,7 +21,7 @@ analysis = ["matplotlib", "numpy", "pandas"]
 guardset = ["scikit-learn>=1.5"]
 
 [tool.setuptools]
-packages = ["corpus", "defenses", "harness", "analysis", "service"]
+packages = ["corpus", "defenses", "harness", "analysis", "service", "guard"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,3 @@
+# Phase 3 candidate: MuRIL, trained on Indian languages and their romanized forms. Licence: docs/licences.md.
+name: muril
+base_model: google/muril-base-cased

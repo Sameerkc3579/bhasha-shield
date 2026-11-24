@@ -1,0 +1,4 @@
+# Phase 3 candidate: continued training of PromptGuard 2 86M. Gated: the HF_TOKEN must have access.
+# A guard trained from it is a derivative; its terms are an open question in docs/licences.md.
+name: promptguard2
+base_model: meta-llama/Llama-Prompt-Guard-2-86M
