@@ -6,7 +6,9 @@
 
 One score per item of `corpus/testset/{set}/{lang}.jsonl`, with the item's text hash. A later run
 reuses a row whose item id, text hash and model id are unchanged, so a rebuilt set (an edited
-benign item, new native items) costs only the changed rows. No threshold is applied here:
+benign item, new native items) costs only the changed rows; `--reuse-from pilot` also takes rows
+from another set's score file under the same rule (same item id, text hash and model id), so the
+frozen set does not rescore what the pilot already scored. No threshold is applied here:
 `analysis/guard_tables.py` fits thresholds on the calibration half and reports the test half.
 Every model goes through its `defenses/` wrapper, so chunking (1500 chars, 200 overlap, max
 score) is the same for all of them, as the plan requires.
@@ -51,25 +53,34 @@ def out_path(set_name: str, lang: str, defense: str) -> Path:
 
 
 def run(name: str, lang: str, set_name: str = "v2", *, defense=None, kinds: tuple[str, ...] | None = None,
-        rerun: bool = False, device: int = -1) -> Path:
-    """Score `lang` of the set with defense `name`; returns the score file."""
+        rerun: bool = False, device: int = -1, reuse_from: str | None = None, label: str | None = None) -> Path:
+    """Score `lang` of the set with defense `name`; returns the score file. `label` names the file
+    instead of `name`, so several runs of one defense (guard seeds, ablations) stay apart."""
     from defenses.base import RunContext
     from defenses.registry import build
 
     defense = defense or build(name, device=device)
     model_id = getattr(defense, "model_id", "")
     items = [i for i in load_items(set_name, lang) if kinds is None or i.kind in kinds]
-    path = out_path(set_name, lang, name)
-    old = {}
-    if path.exists() and not rerun:
-        prev = json.loads(path.read_text(encoding="utf-8"))
-        if prev.get("model_id") == model_id:
-            old = {r["item_id"]: r for r in prev["scores"]}
+    label = label or name
+    path = out_path(set_name, lang, label)
+    def rows_of(p: Path) -> dict[str, dict]:
+        if rerun or not p.exists():
+            return {}
+        prev = json.loads(p.read_text(encoding="utf-8"))
+        return {r["item_id"]: r for r in prev["scores"]} if prev.get("model_id") == model_id else {}
+
+    old = rows_of(path)
+    other = rows_of(out_path(reuse_from, lang, label)) if reuse_from and reuse_from != set_name else {}
+    reused = 0
 
     t0, rows, fresh = time.time(), [], 0
     for it in items:
         h = sha(it.text)
         r = old.get(it.item_id)
+        if (r is None or r["sha"] != h) and other.get(it.item_id, {}).get("sha") == h:
+            r = other[it.item_id]
+            reused += 1
         if r is None or r["sha"] != h:
             ctx = RunContext(case_id=it.item_id, lang=lang, model="none", user_task="")
             v = defense.inspect(ToolOutput(tool_name=it.tool_name or "tool", content=it.text, lang=lang), ctx)
@@ -78,8 +89,9 @@ def run(name: str, lang: str, set_name: str = "v2", *, defense=None, kinds: tupl
         rows.append({k: getattr(it, k) for k in ROW_FIELDS} | {"sha": h, "score": r["score"],
                                                                "latency_ms": r["latency_ms"]})
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"set": set_name, "lang": lang, "defense": name, "model_id": model_id,
-                                "scored_now": fresh, "seconds": round(time.time() - t0, 1), "scores": rows},
+    path.write_text(json.dumps({"set": set_name, "lang": lang, "defense": label, "model_id": model_id,
+                                "scored_now": fresh, "reused_from": {reuse_from: reused} if reuse_from else {},
+                                "seconds": round(time.time() - t0, 1), "scores": rows},
                                indent=1, ensure_ascii=False), encoding="utf-8")
     return path
 
@@ -191,16 +203,22 @@ def main() -> int:
                     help="score the v1 items and compare with v1's score files and calibration")
     ap.add_argument("--device", default="cpu", help="'cpu' or a CUDA index")
     ap.add_argument("--rerun", action="store_true")
+    ap.add_argument("--label", help="score-file name instead of the defense name (one defense only), "
+                                    "e.g. bhasha_guard@mdeberta__full__s1")
+    ap.add_argument("--reuse-from", choices=sorted(SETS), help="take unchanged rows from this set's score files")
     args = ap.parse_args()
 
     kinds = tuple(V1_KINDS if args.reproduce_v1 else args.kinds or ()) or None
+    if args.label and len(args.defenses) != 1:
+        ap.error("--label names one defense's score files: pass exactly one --defenses")
     device = -1 if args.device == "cpu" else int(args.device)
     for name in args.defenses:
         from defenses.registry import build
 
         defense = build(name, device=device)
         for lang in args.langs:
-            p = run(name, lang, args.set, defense=defense, kinds=kinds, rerun=args.rerun)
+            p = run(name, lang, args.set, defense=defense, kinds=kinds, rerun=args.rerun, reuse_from=args.reuse_from,
+                    label=args.label)
             d = json.loads(p.read_text(encoding="utf-8"))
             print(f"{lang:<9}{name:<30}{len(d['scores']):>5} items, {d['scored_now']} scored now "
                   f"({d['seconds']:.0f}s) -> {p}", flush=True)

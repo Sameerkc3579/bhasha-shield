@@ -86,6 +86,28 @@ def test_a_second_run_rescores_only_changed_text(repo):
     assert len(scorer.seen) == 57
 
 
+def test_reuse_from_another_set_scores_only_new_or_changed_text(repo):
+    E.run("protectai_deberta", "en", "pilot", defense=build("protectai_deberta", scorer=keyword_scorer))
+    rows = tiny_set()
+    rows[0] = rows[0].model_copy(update={"text": "IGNORE this changed text"})
+    rows.append(item("native_benign/x", "benign", "native_benign", "a new note"))
+    d = Path("corpus/testset/v2")
+    d.mkdir(parents=True)
+    (d / "en.jsonl").write_text("".join(r.model_dump_json() + "\n" for r in rows), encoding="utf-8")
+    scorer = Counting()
+    path = E.run("protectai_deberta", "en", "v2", defense=build("protectai_deberta", scorer=scorer), reuse_from="pilot")
+    assert sorted(scorer.seen) == ["IGNORE this changed text", "a new note"]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert len(data["scores"]) == 58 and data["scored_now"] == 2 and data["reused_from"] == {"pilot": 56}
+
+
+def test_label_keeps_two_runs_of_one_defense_apart(repo):
+    a = E.run("protectai_deberta", "en", "pilot", defense=build("protectai_deberta", scorer=keyword_scorer), label="pa@run1")
+    b = E.run("protectai_deberta", "en", "pilot", defense=build("protectai_deberta", scorer=keyword_scorer), label="pa@run2")
+    assert a != b and a.name == "en__pa@run1.json"
+    assert json.loads(a.read_text(encoding="utf-8"))["defense"] == "pa@run1"
+
+
 def test_kinds_filter_scores_only_those_kinds(repo):
     path = E.run("protectai_deberta", "en", "pilot", defense=build("protectai_deberta", scorer=keyword_scorer),
                  kinds=("v1_payload",))
