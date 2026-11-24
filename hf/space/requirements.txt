@@ -1,0 +1,7 @@
+gradio>=4.44
+torch
+transformers>=4.46,<5
+sentencepiece
+protobuf
+pydantic>=2.7
+# the agentfw package (service/, defenses/, guard/); pinned to a commit at Gate G5

@@ -64,11 +64,13 @@ class FirewallConfig(BaseModel):
 
     @classmethod
     def from_calibration(cls, path: Path | str = THRESHOLDS, detector: str = "protectai_deberta",
-                         **kw: Any) -> "FirewallConfig":
+                         key: str | None = None, **kw: Any) -> "FirewallConfig":
+        """`key`: the thresholds entry, when it is not the detector's name (a guard run:
+        detector `bhasha_guard`, key `bhasha_guard@mdeberta__full__s1`)."""
         p = Path(path)
         if not p.exists():
             return cls(detector=detector, **kw)
-        entry = json.loads(p.read_text(encoding="utf-8")).get(detector)
+        entry = json.loads(p.read_text(encoding="utf-8")).get(key or detector)
         if entry is None:
             return cls(detector=detector, **kw)
         return cls(detector=detector, thresholds=entry["by_lang"],
