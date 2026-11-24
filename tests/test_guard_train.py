@@ -169,3 +169,36 @@ def test_infer_loads_an_onnx_export_by_its_file(tmp_path, monkeypatch):
     (tmp_path / "model_quantized.onnx").write_bytes(b"")
     monkeypatch.setattr(infer, "onnx_scorer", lambda p: ("onnx", p))
     assert infer.load_scorer(tmp_path) == ("onnx", tmp_path)
+
+
+def test_model_card_comes_from_the_run_files_and_says_what_is_missing(data, tmp_path):
+    pytest.importorskip("sklearn")
+    from guard import push_hub as P
+
+    runs = tmp_path / "runs"
+    T.main(["--config", str(T.CONFIGS / "mdeberta.yaml"), "--data", str(data), "--out", str(runs), "--fake"])
+    run = runs / "mdeberta__full__s1"
+    ev = tmp_path / "eval"
+    ev.mkdir()
+    card = P.render(run, eval_dir=ev, latency_dir=tmp_path / "lat")
+    assert "Not evaluated yet" in card and "No selection file" in card and "Not measured yet" in card
+    assert "microsoft/mdeberta-v3-base" in card and "Sameer" not in card
+    cal = {"threshold": 0.9, "tpr": 0.5, "tpr_ci": [0.4, 0.6], "fpr_ordinary_k": 1, "fpr_ordinary_n": 90,
+           "fpr_adversarial_k": 2, "fpr_adversarial_n": 80, "auc": 0.95}
+    (ev / "tables.json").write_text(json.dumps({"defenses": {"bhasha_guard@mdeberta__full__s1": {
+        "hi": {"at": {"0.02": {"calibrated": cal, "shipped": None}}}}}}), encoding="utf-8")
+    (ev / "selection.json").write_text(json.dumps({"winner": "mdeberta", "ranking": ["mdeberta", "muril"],
+                                                   "criterion": "c", "target_fpr": 0.02}), encoding="utf-8")
+    card = P.render(run, eval_dir=ev, latency_dir=tmp_path / "lat")
+    assert "| hi | 50.0% [40.0%-60.0%] | 1/90 | 2/80 | 0.950 |" in card and "winner `mdeberta`" in card
+
+
+def test_upload_needs_an_explicit_yes(data, tmp_path, monkeypatch):
+    pytest.importorskip("sklearn")
+    from guard import push_hub as P
+
+    runs = tmp_path / "runs"
+    T.main(["--config", str(T.CONFIGS / "muril.yaml"), "--data", str(data), "--out", str(runs), "--fake"])
+    monkeypatch.setattr(P, "CARD", tmp_path / "card.md")
+    with pytest.raises(SystemExit, match="--yes"):
+        P.main(["--run", str(runs / "muril__full__s1"), "--repo", "x/y"])
