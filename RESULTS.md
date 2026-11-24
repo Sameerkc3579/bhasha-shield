@@ -1395,4 +1395,70 @@ gives 320 benign texts per language.
 
 ---
 
+## 2026-11-24 — v2 Phase 3 step 2: the four baselines on the frozen test set
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`, one language per process). Spend: **Rs 0**.
+`python -m scripts.guard_eval --set v2 --reuse-from pilot --langs <lang> --defenses <d>` for
+`protectai_deberta`, `translit+protectai_deberta`, `promptguard2` (86M) and `promptguard2_22m`
+(`meta-llama/Llama-Prompt-Guard-2-22M`, gated, free). The v1 items were reused from the pilot score
+files where text, sha and model matched (so English needed no new scoring; 300 new items per
+non-English language), and 22M was scored from scratch (en 125 s, hi 240 s, hi_latn 117 s, mixed 98 s).
+Then `python -m analysis.guard_tables --set v2 --defenses promptguard2 promptguard2_22m
+protectai_deberta translit+protectai_deberta --targets 0.02 0.01 0.05 --compare`. Score files:
+`analysis/out/guard_eval/v2/{lang}__{defense}.json`; table: `analysis/out/guard_eval/v2/tables.json`.
+
+Thresholds are fitted per language on the **calibration half**; everything below is the **test half**
+(91 English, 118–119 non-English headline attacks = `v1_embedded` + `native_embedded`, over 21 goals;
+151–181 benign). TPR 95% CIs are a bootstrap over attacker goals.
+
+**Detection at 2% FPR, calibrated** (the G3 operating point):
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| PromptGuard 2 86M | 0% (0/91) | 1% [0-3] (1/119) | **24% [9-40]** (28/118) | 0% (0/118) |
+| PromptGuard 2 22M | 0% (0/91) | **18% [5-33]** (21/119) | 16% [2-34] (19/118) | 0% (0/118) |
+| ProtectAI | 0% | 0% | 0% | 0% |
+| ProtectAI, transliterate first | 0% | 0% | 0% | 0% |
+| AUC, 86M / 22M | 0.94 / 0.82 | 0.95 / 0.95 | 0.96 / 0.93 | 0.92 / 0.91 |
+
+Test-half FPR at these thresholds stays at 0–2 of 61–91 in each benign group. The English threshold
+used unchanged in other languages ("shipped") detects 0–1% everywhere. At 1% FPR the picture is the
+same (86M hi_latn 19%, 22M hi 15%, hi_latn 10%, the rest 0%).
+
+**At the default threshold 0.5** (no calibration; TPR, then FPR ordinary / adversarial-benign):
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| PromptGuard 2 86M | 36% (1/90, 7/61) | 8% (0/90, 1/85) | 7% (1/90, 0/91) | 9% (0/90, 3/90) |
+| PromptGuard 2 22M | 5% (1/90, 18/61) | 8% (0/90, 0/85) | 7% (0/90, 0/91) | 15% (1/90, 5/90) |
+| ProtectAI | 29% (2/90, 27/61) | 64% (47/90, 65/85) | 43% (7/90, 49/91) | 62% (6/90, 60/90) |
+
+ProtectAI's default "detections" off-English come with 7–52% FPR on ordinary text and 54–76% on
+adversarial-benign text: it flags Hindi, not attacks (as in v1).
+
+- **v1's numbers hold on v1's items.** At 5% FPR, PromptGuard 2 86M detects 46/91 (hi) and 72/91
+  (hi_latn) of the `v1_embedded` attacks, which are v1's 51% and 79% (10-15 entry) case for case.
+- **2% instead of 5% is what costs the most.** With 2% of 169–175 calibration negatives (3 false
+  positives allowed), a few high-scoring benign texts lift the threshold: Hindi 86M goes from 0.017 at
+  5% to 0.983 at 2%, and its `v1_embedded` detection from 46/91 to 0/91.
+- **The native attacks are nearly invisible to every baseline.** PromptGuard 2 catches 0–3 of the
+  27–28 `native_embedded` attacks per language even at 5% FPR, while the English template around a
+  Hindi goal (`enframe_embedded`, a separate variant) is caught 42/91 (hi) and 89/91 (hi_latn) at 2%.
+  The baselines detect the English template, not the injection.
+- **22M beats 86M in Hindi** (paired difference 86M − 22M at 2% FPR: −17 pts [−33, −3]) and loses in
+  hi_latn (+8 [−3, +21] at 2%, +8 [+2, +16] at 1%, +40 [+25, +54] at 5%); in en and mixed both are 0
+  at 1% and 2%. So "calibrated PromptGuard 2" for Gate G3
+  is best read as the better of the two in each language (hi 22M 18%, hi_latn 86M 24%, mixed 0%).
+  That reading is a decision for Sameer, recorded in docs/v2-plan.md when made.
+- **Code-mixed is the hardest language:** 0% for every baseline at 1% and 2% FPR, at most 4% at 5%.
+- v1 never scored 22M, so step 1 has nothing to reproduce for it; these are its first numbers.
+- The table now also shows each classifier at its default 0.5 threshold (`analysis/guard_tables.py`,
+  with a test), which Phase 3 step 2 asks for.
+
+**Phase 3 status.** Steps 1 and 2 are done. Steps 3–5 (training, ablations, selection) need the
+training set, which waits on a clean generation run and the G2 sample review. Not scored: the
+`craftloop-ai/hinglish-prompt-guard` baseline (open G0 decision). **Tests:** 398 passed, 2 skipped.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
