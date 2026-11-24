@@ -171,6 +171,17 @@ def markdown(name: str, t: dict, target: float) -> str:
     return "\n".join(lines)
 
 
+def proxy_thresholds(tables: dict[str, dict], target: float) -> dict[str, dict]:
+    """Per-language calibrated thresholds in `service/proxy.py`'s format (FirewallConfig.from_calibration)."""
+    key = str(target)
+    out = {}
+    for name, t in tables.items():
+        by_lang = {lang: cell["at"][key]["calibrated"]["threshold"] for lang, cell in t.items() if key in cell["at"]}
+        if by_lang:
+            out[name] = {"target_fpr": target, "by_lang": by_lang, "english": by_lang.get("en", min(by_lang.values()))}
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--set", default="v2")
@@ -208,6 +219,12 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=1), encoding="utf-8")
     print(f"\n-> {out}")
+    # Thresholds for the proxy (python -m service.proxy): fitted on the calibration half only.
+    tf = OUT / args.set / "thresholds.json"
+    th = json.loads(tf.read_text(encoding="utf-8")) if tf.exists() else {}
+    th.update(proxy_thresholds(result["defenses"], 0.02 if 0.02 in args.targets else args.targets[0]))
+    tf.write_text(json.dumps(th, indent=1), encoding="utf-8")
+    print(f"-> {tf}")
     return 0
 
 

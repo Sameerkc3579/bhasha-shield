@@ -253,3 +253,18 @@ def test_compare_calibration_flags_any_changed_point():
     moved["langs"]["en"]["calibrated"]["tpr_k"] = 41
     rows = E.compare_calibration(moved, v1)
     assert rows[0]["same"] is False and rows[0]["calibrated.tpr_k"] == (40, 41)
+
+
+def test_proxy_thresholds_are_the_calibrated_ones_in_the_proxys_format(tmp_path):
+    from service.proxy import FirewallConfig
+
+    rows = rows_for({})
+    t = G.table({"en": rows, "hi": rows}, targets=(0.01, 0.02), iters=50)
+    th = G.proxy_thresholds({"bhasha_guard@x": t}, 0.02)
+    e = th["bhasha_guard@x"]
+    assert e["target_fpr"] == 0.02 and e["english"] == t["en"]["at"]["0.02"]["calibrated"]["threshold"]
+    assert e["by_lang"]["hi"] == t["hi"]["at"]["0.02"]["calibrated"]["threshold"]
+    p = tmp_path / "thresholds.json"
+    p.write_text(json.dumps(th), encoding="utf-8")
+    c = FirewallConfig.from_calibration(p, detector="bhasha_guard@x")
+    assert c.thresholds == e["by_lang"] and c.default_threshold == e["english"]
