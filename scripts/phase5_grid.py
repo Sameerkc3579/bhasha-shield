@@ -121,7 +121,7 @@ def run_cells(cases, defense, client, *, inject: bool, attack: str, workers: int
 
     def one(case: InjectionCase) -> CaseResult:
         payload = (render(case.attacker_goal_nl, attack=attack, lang=case.lang,
-                          allow_unverified=allow_unverified) if inject else "")
+                          allow_unverified=allow_unverified, key=case.case_id) if inject else "")
         return runner.run_case(case, payload=payload)
 
     out: list[CaseResult] = []

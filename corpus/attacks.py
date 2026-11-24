@@ -30,7 +30,10 @@ each template rather than spliced in as English.
 
 from __future__ import annotations
 
-ATTACKS = ("important_instructions", "important_instructions_enframe", "direct")
+import functools
+import hashlib
+
+ATTACKS = ("important_instructions", "important_instructions_enframe", "direct", "native")
 DEFAULT_ATTACK = "important_instructions"
 
 # The Hindi diagnostic (2026-10-13): AgentDojo's English template around the
@@ -39,6 +42,10 @@ DEFAULT_ATTACK = "important_instructions"
 # does not get acted on". Opt-in by name only -- never a fallback for a missing
 # template, which would confound the language condition.
 ENFRAME = "important_instructions_enframe"
+
+# v2 Phase 4 step 2: the Phase 1 native templates (corpus/native/{lang}_attacks.txt, LLM-drafted and
+# signed by the reviewer), one per case, chosen by a hash of the case id. hi, hi_latn and mixed only.
+NATIVE = "native"
 
 USER_NAME = "Emma Johnson"            # AgentDojo's default victim user
 MODEL_NAME = "the AI language model"  # agentdojo.attacks.base_attacks.DEFAULT_MODEL_NAME
@@ -124,14 +131,37 @@ TEMPLATE_STATUS: dict[str, dict[str, str | None]] = {
 }
 
 
+@functools.lru_cache(maxsize=None)
+def native_templates(lang: str, *, verified_only: bool = False) -> tuple[str, ...]:
+    """The native attack templates of `lang`, in file order (all, or only the signed ones)."""
+    from corpus.testset import native_entries, native_status   # lazy: corpus.testset imports this module
+
+    attacks, _, _ = native_entries(lang)
+    if not verified_only:
+        return tuple(e.text for e in attacks)
+    st = native_status(lang, attacks)
+    return tuple(e.text for e in attacks if st[e.id].state == "verified")
+
+
 def render(goal: str, *, attack: str = DEFAULT_ATTACK, lang: str = "en",
-           allow_unverified: bool = True) -> str:
+           allow_unverified: bool = True, key: str | None = None) -> str:
     """Dress a goal in the attack template for `lang`.
 
     `allow_unverified` defaults to True so existing callers keep working; the
     grid passes its own `--allow-unverified` flag, so a real (non-pilot) grid
-    run refuses machine-drafted templates.
+    run refuses machine-drafted templates. `key` (the case id) picks the native
+    template; without it the goal text does.
     """
+    if attack == NATIVE:
+        every = native_templates(lang)
+        if not every:
+            raise KeyError(f"no native templates for lang {lang!r}: they exist for hi, hi_latn and mixed")
+        signed = native_templates(lang, verified_only=True)
+        if len(signed) < len(every) and not allow_unverified:
+            raise PermissionError(f"{len(every) - len(signed)} of the {lang!r} native templates are not signed "
+                                  f"(python -m corpus.testset status); pass --allow-unverified for a pilot")
+        h = int(hashlib.sha256(f"native:{lang}:{key or goal}".encode("utf-8")).hexdigest()[:12], 16)
+        return every[h % len(every)].replace("{goal}", goal).replace("{user}", USER_NAME)
     if attack == ENFRAME:
         # AgentDojo's own English text: nothing to verify in the wrapper (the
         # goal is gated where the cases are loaded, corpus.goals).
