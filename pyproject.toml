@@ -19,6 +19,8 @@ classifiers-local = ["torch", "transformers", "sentencepiece", "protobuf"]
 analysis = ["matplotlib", "numpy", "pandas"]
 # v2 Phase 2 (corpus/guardset): near-duplicate and TF-IDF leakage checks.
 guardset = ["scikit-learn>=1.5"]
+# v2 Phase 5: int8 ONNX export of the guard and its CPU latency (guard/export_onnx.py).
+onnx = ["optimum[onnxruntime]"]
 
 [tool.setuptools]
 packages = ["corpus", "defenses", "harness", "analysis", "service", "guard"]

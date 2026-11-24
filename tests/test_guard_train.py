@@ -151,3 +151,21 @@ def test_bhasha_guard_defense_chunks_like_v1(data, tmp_path, monkeypatch):
     monkeypatch.delenv("AGENTFW_GUARD_MODEL")
     with pytest.raises(RuntimeError, match="AGENTFW_GUARD_MODEL"):
         build("bhasha_guard")
+
+
+def test_latency_percentiles_and_bench():
+    from guard import export_onnx as X
+
+    assert X.percentile([], 0.95) is None
+    assert X.percentile(list(range(1, 101)), 0.95) == 95 and X.percentile([3.0], 0.5) == 3.0
+    seen = []
+    r = X.bench(seen.append, ["a", "b", "c"], warmup=2)
+    assert r["n"] == 3 and seen == ["a", "b", "a", "b", "c"] and r["median_ms"] >= 0
+
+
+def test_infer_loads_an_onnx_export_by_its_file(tmp_path, monkeypatch):
+    from guard import infer
+
+    (tmp_path / "model_quantized.onnx").write_bytes(b"")
+    monkeypatch.setattr(infer, "onnx_scorer", lambda p: ("onnx", p))
+    assert infer.load_scorer(tmp_path) == ("onnx", tmp_path)
