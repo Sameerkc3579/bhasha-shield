@@ -238,6 +238,15 @@ def test_table_reports_shipped_and_calibrated_per_target():
             assert cell["shipped"]["threshold"] == t["en"]["at"][target]["calibrated"]["threshold"]
 
 
+def test_table_reports_the_out_of_the_box_threshold_once_per_language():
+    rows = rows_for({})
+    t = G.table({"en": rows}, targets=(0.02,), iters=200)
+    d = t["en"]["default"]
+    assert d["threshold"] == G.DEFAULT_THRESHOLD == 0.5
+    assert d == G.evaluate(rows, 0.5, iters=200)          # read on the test half, fitted on nothing
+    assert "| TPR at 0.5" in G.markdown("x", t, 0.02)
+
+
 def test_paired_difference_is_zero_against_itself():
     rows = rows_for({})
     d = G.paired_diff(rows, rows, 0.5, 0.5, iters=200)

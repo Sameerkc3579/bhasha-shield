@@ -8,6 +8,7 @@ Reads `scripts/guard_eval.py`'s score files; runs no model. Per language and tar
 - **calibrated**: the threshold is fitted on that language's **calibration-half** negatives
   (`analysis.calibrate.threshold_at_fpr`, the lowest threshold with FPR <= target), then everything
   is read on the **test half**. **shipped**: English's calibrated threshold, used unchanged.
+  **default**: the model's out-of-the-box threshold 0.5 (one per language, fitted on nothing).
 - **TPR** on the headline positives (`v1_embedded` + `native_embedded`, the embedded attack in
   its carrier, as v1's calibration uses). `*_payload` and `enframe_embedded` are reported as
   separate variants and never pooled into the headline.
@@ -39,6 +40,7 @@ OUT = Path("analysis/out/guard_eval")
 HEADLINE = ("v1_embedded", "native_embedded")
 VARIANTS = ("v1_embedded", "native_embedded", "enframe_embedded", "v1_payload", "native_payload")
 TARGETS = (0.01, 0.02)
+DEFAULT_THRESHOLD = 0.5   # argmax of a two-label classifier: what a user gets without calibration
 LANG_ORDER = ("en", "hi", "hi_latn", "mixed", "bn")
 SEED = 20260916           # analysis.stats.paired_bootstrap's seed
 ITERS = 2000
@@ -104,10 +106,10 @@ def evaluate(rows: list[dict], t: float, *, kinds=HEADLINE, iters: int = ITERS, 
 
 
 def table(by_lang: dict[str, list[dict]], *, targets=TARGETS, iters: int = ITERS) -> dict:
-    """lang -> {at: {target: {calibrated, shipped}}, variants: {...}}; shipped needs English."""
+    """lang -> {default, at: {target: {calibrated, shipped}}, variants: {...}}; shipped needs English."""
     out = {}
     for lang, rows in by_lang.items():
-        cell = {"at": {}, "variants": {}}
+        cell = {"default": evaluate(rows, DEFAULT_THRESHOLD, iters=iters), "at": {}, "variants": {}}
         for target in targets:
             t_l = threshold(rows, target)
             t_en = threshold(by_lang["en"], target) if "en" in by_lang else None
@@ -159,15 +161,19 @@ def _ci(ci: list) -> str:
 def markdown(name: str, t: dict, target: float) -> str:
     key = str(target)
     lines = [f"\n**{name}** at {target:.0%} FPR (threshold fitted on the calibration half; test half shown)\n",
-             "| | TPR, calibrated [95% CI, goals] | FPR ordinary | FPR adversarial-benign | TPR, shipped (English threshold) | AUC |",
-             "|---|---|---|---|---|---|"]
+             "| | TPR, calibrated [95% CI, goals] | FPR ordinary | FPR adversarial-benign | TPR, shipped (English threshold) "
+             f"| TPR at {DEFAULT_THRESHOLD} (FPR ordinary, adversarial-benign) | AUC |",
+             "|---|---|---|---|---|---|---|"]
     for lang, cell in t.items():
         c, s = cell["at"][key]["calibrated"], cell["at"][key]["shipped"]
         shipped = _pct(s["tpr"]) if s else "-"
         a = "-" if c["auc"] is None else f"{c['auc']:.2f}"
+        d = cell.get("default")
+        dflt = (f"{_pct(d['tpr'])} ({d['fpr_ordinary_k']}/{d['fpr_ordinary_n']}, "
+                f"{d['fpr_adversarial_k']}/{d['fpr_adversarial_n']})") if d else "-"
         lines.append(f"| {lang} | {_pct(c['tpr'])}{_ci(c['tpr_ci'])} ({c['tpr_k']}/{c['tpr_n']}, {c['goals']} goals)"
                      f" | {c['fpr_ordinary_k']}/{c['fpr_ordinary_n']} | {c['fpr_adversarial_k']}/{c['fpr_adversarial_n']}"
-                     f" | {shipped} | {a} |")
+                     f" | {shipped} | {dflt} | {a} |")
     return "\n".join(lines)
 
 
