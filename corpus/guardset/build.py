@@ -8,7 +8,7 @@ near-duplicate removal -> train/validation split by goal and family -> augmented
 of their source) -> TF-IDF leakage audit of both sides against every frozen test item. The report
 counts what each stage removed, so the dataset card can say it.
 
-Drafts (`corpus/guardset/drafts/*.jsonl`, GuardItem rows) and the output are datasets: gitignored,
+Drafts (`corpus/guardset/drafts/generated_*.jsonl`, GuardItem rows) and the output are datasets: gitignored,
 published on Hugging Face (private at G2). Only the report is evidence for RESULTS.md.
 """
 
@@ -84,7 +84,8 @@ def run(drafts: list[GuardItem], *, test_texts: dict[str, list[str]], exclusions
 
 
 def load_drafts(d: Path) -> list[GuardItem]:
-    return [GuardItem.model_validate_json(l) for f in sorted(d.glob("*.jsonl"))
+    """The generator's `generated_{lang}.jsonl` files only: `seed_en.jsonl` shares the folder."""
+    return [GuardItem.model_validate_json(l) for f in sorted(d.glob("generated_*.jsonl"))
             for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 

@@ -162,6 +162,8 @@ def test_cli_fake_run_writes_drafts_that_build_accepts(work):
     from corpus.guardset.schema import Exclusions
 
     assert G.main(["all", "--fake", "--work", str(work / "work")]) == 0
+    # the notebook's `seed export` writes the English seed list into the same folder
+    (work / "drafts" / "seed_en.jsonl").write_text('{"seed_id": "x", "text": "y"}\n', encoding="utf-8")
     drafts = build.load_drafts(work / "drafts")
     assert {d.lang for d in drafts} == set(G.LANGS)
     s, rep = build.run(drafts, test_texts={}, exclusions=Exclusions.from_manifest(
