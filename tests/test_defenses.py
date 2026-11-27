@@ -129,7 +129,7 @@ def all_defenses():
     planner = ScriptedClient([], plan_reply='["send_money"]')
     out = {}
     for name in DEFENSES:
-        if name in ("promptguard2", "protectai_deberta", "xlmr_finetuned"):
+        if name in ("promptguard2", "protectai_deberta", "xlmr_finetuned", "bhasha_guard", "promptguard2_22m"):
             out[name] = build(name, scorer=keyword_scorer)
         elif name in ("allowlist", "camel_lite"):
             out[name] = build(name, planner=planner)
@@ -138,10 +138,10 @@ def all_defenses():
     return out
 
 
-def test_registry_builds_all_nine_three_per_class():
+def test_registry_builds_v1s_nine_three_per_class_plus_the_v2_classifiers():
     ds = all_defenses()
-    assert len(ds) == 9
-    assert [d.klass for d in ds.values()].count("A") == 3
+    assert len(ds) == 11 and {"bhasha_guard", "promptguard2_22m"} <= set(ds)
+    assert [d.klass for d in ds.values()].count("A") == 5
     assert [d.klass for d in ds.values()].count("B") == 3
     assert [d.klass for d in ds.values()].count("C") == 3
     for name, d in ds.items():

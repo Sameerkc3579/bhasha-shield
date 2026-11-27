@@ -1244,4 +1244,266 @@ files keep their filled-in error text). In the attack files the only change outs
 
 ---
 
+## 2026-11-10 — v2 Phase 3 step 1: v1's ProtectAI numbers reproduce from the v2 test-set pipeline
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`), `protectai/deberta-v3-base-prompt-injection-v2`.
+Spend: **Rs 0**. The plan's rule (docs/v2-plan.md, Phase 3 step 1): before anything new is scored,
+the new scorer must give v1's numbers on v1's items.
+
+`python -m scripts.guard_eval --set pilot --reproduce-v1 --defenses protectai_deberta` scored the v1
+items of the v2 **pilot** build (kinds `v1_embedded`, `v1_payload`, `v1_benign`: 485 per language),
+then compared them with v1's score files and re-ran v1's own `analysis.calibrate` on the fresh
+scores. Report: `analysis/out/guard_eval/pilot/reproduce_v1__protectai_deberta.json`.
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items compared | 485 | 485 | 485 | 485 |
+| largest score difference | 4e-6 | 7e-6 | 1e-5 | 1e-5 |
+| AUC, embedded (v1 -> now) | 0.7307 -> 0.7307 | 0.4535 -> 0.4535 | 0.7084 -> 0.7084 | 0.6965 -> 0.6965 |
+| own threshold at 5% FPR: FPR, TPR | 3/151, 2/91 | 6/151, 2/91 | 2/151, 2/91 | 0/151, 1/91 |
+
+- **Reproduced:** no item drifted beyond 1e-4, no text changed, nothing missing; every calibration
+  point (shipped, calibrated, matched: threshold, FPR and TPR counts) is identical, and the AUCs
+  are the 10-10 entry's 0.73 / 0.45 / 0.71 / 0.70. The score differences are CPU float noise, as
+  in the 10-13 refresh (3e-6). So the v2 pilot set holds v1's items byte for byte, its halves are
+  v1's, and the new scorer is a faithful replacement for `attack_scores` + `benign_fpr`.
+- These are v1 numbers re-derived, not new results. The non-English benign items are still the
+  machine drafts that the Phase 1 review is checking.
+
+**Not done:**
+- `translit+protectai_deberta`: the job was stopped by Claude Code because the laptop ran low on
+  memory, after the raw model had finished all four languages. To re-run, one language per process.
+- PromptGuard 2: its weights are no longer cached on this laptop and no Hugging Face token is set
+  (gated model, free). It runs after the login.
+
+**Code since 11-09** (branch v2): `scripts/guard_eval.py`, `analysis/guard_tables.py` (thresholds at
+1% and 2% FPR fitted on the calibration half; test half reported; TPR CIs by bootstrap over attacker
+goals), the Phase 2 data plumbing in `corpus/guardset/`, and two Phase 1 fixes (review import rewrites
+only edited lines; reviewers may sign with their code). English benign review: 300/300 verified
+(213 signed R1 with no edits). **Tests:** 343 passed, 3 skipped.
+
+---
+
+## 2026-11-11 — v2 Phase 3 step 1: v1's transliterate-first ProtectAI numbers reproduce too
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`, one language per process),
+`translit+protectai_deberta` (rule-based Devanagari -> Latin, then
+`protectai/deberta-v3-base-prompt-injection-v2`). Spend: **Rs 0**. This is the run that the 11-10
+entry lists as not done.
+
+Scored with `python -m scripts.guard_eval --set pilot --defenses translit+protectai_deberta --kinds
+v1_embedded v1_payload v1_benign --langs <lang>` (en 470 s, hi 404 s, hi_latn 421 s, mixed 315 s),
+then `reproduce_v1` on the saved scores. Report:
+`analysis/out/guard_eval/pilot/reproduce_v1__translit+protectai_deberta.json`.
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items compared | 485 | 485 | 485 | 485 |
+| largest score difference | 4e-6 | 5e-6 | 6e-6 | 1.2e-5 |
+| AUC, embedded (v1 -> now) | 0.7305 -> 0.7305 | 0.6065 -> 0.6065 | 0.7084 -> 0.7084 | 0.6965 -> 0.6965 |
+| own threshold at 5% FPR: FPR, TPR | 3/151, 2/91 | 9/151, 4/91 | 2/151, 2/91 | 0/151, 1/91 |
+
+- **Reproduced:** no item drifted beyond 1e-4, no text changed, nothing missing; every calibration
+  point is identical, and the English threshold is the same (0.999995). Like the 11-10 entry, these
+  are v1 numbers re-derived, not new results.
+- **Why the 11-10 job died:** with two `--defenses`, `guard_eval` kept the first model in memory while
+  it loaded the second. Fixed (each model is freed before the next loads), with a test.
+
+**Phase 3 step 1 still open:** PromptGuard 2, which needs the Hugging Face login (gated model, free).
+**Tests:** 344 passed, 3 skipped.
+
+---
+
+## 2026-11-19 — v2 Phase 3 step 1 done: v1's PromptGuard 2 numbers reproduce
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`, one language per process),
+`meta-llama/Llama-Prompt-Guard-2-86M` (gated, free; Hugging Face login added today). Spend: **Rs 0**.
+
+Scored with `python -m scripts.guard_eval --set pilot --defenses promptguard2 --kinds v1_embedded
+v1_payload v1_benign --langs <lang>` (en 365 s, hi 352 s, hi_latn 407 s, mixed 442 s), then
+`reproduce_v1` on the saved scores. Report: `analysis/out/guard_eval/pilot/reproduce_v1__promptguard2.json`.
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items compared | 485 | 485 | 485 | 485 |
+| largest score difference | 0 | 0 | 0 | 0 |
+| AUC, embedded (v1 -> now) | 0.9402 -> 0.9402 | 0.9808 -> 0.9808 | 0.9921 -> 0.9921 | 0.9557 -> 0.9557 |
+| own threshold at 5% FPR: FPR, TPR | 5/151, 0/91 | 3/151, 46/91 | 1/151, 72/91 | 2/151, 2/91 |
+
+- **Reproduced:** every score is identical to v1's, every calibration point is identical, and the English
+  threshold is the same (0.994363). With the 11-10 (ProtectAI) and 11-11 (transliterate-first) entries,
+  all three v1 classifiers now reproduce from the v2 pipeline: **Phase 3 step 1 is done.** These are v1
+  numbers re-derived, not new results.
+
+**Phase 1 the same day:** the benign review is complete (hi, hi_latn, mixed signed R1 with no edits:
+300/300 in all four languages). The 300 native texts (50 templates + 50 benign for each of hi,
+hi_latn and mixed) were **drafted by an LLM (claude-opus-5-5) and checked by R1**, at the user's
+request, and are recorded that way (provenance `machine+human`, `drafted=claude-opus-5-5`); see the
+note in docs/v2-plan.md, Phase 1. The test set is not frozen yet. **Tests:** 345 passed, 3 skipped.
+
+---
+
+## 2026-11-19 — Gate G1: the v2 test set is frozen
+
+`python -m corpus.testset build` wrote `corpus/testset/v2/` with 0 problems; the SHA-256 of each file
+is pinned in `tests/test_testset_hash.py` (both tests pass; a second build is byte-identical).
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| items | 485 | 785 | 785 | 785 |
+| attack positives, calibration / test half | 73 / 112 | 176 / 259 | 178 / 257 | 178 / 257 |
+| benign, calibration / test half | 149 / 151 | 175 / 175 | 169 / 181 | 170 / 180 |
+
+Kinds per language: v1 embedded 150, v1 payload 35, v1 benign 300; for hi, hi_latn and mixed also
+enframe 150, native embedded 50, native payload 50 and native benign 50. Goals: 14 calibration,
+21 test, none in both. 54 template families in the manifest.
+
+- **G1 check:** every row has `verified_by` (codes `R1` and `AgentDojo` only; no reviewer name in any
+  frozen file), the hashes are committed, and the hash test passes.
+- **The native items (150 rows per non-English language, built from 100 texts) are LLM-drafted**
+  (`source: native_draft/claude-opus-5-5`), checked by R1, not human-written; see DATASHEET.md and
+  the Phase 1 note in docs/v2-plan.md.
+- `manifest.json` sha256 `70329a54…`; file hashes in the test.
+
+---
+
+## 2026-11-22 — v2 Phase 2: first generation run discarded (generator bug)
+
+The first Colab run of `notebooks/guardset_colab.ipynb` (Qwen2.5-14B-Instruct-AWQ, revision
+`53953585…`) finished, but its output is not used. Its archive `guardset_drafts.tgz` is kept locally,
+not committed. Counts come from its `work/*.jsonl` files, run through the checks added the same day.
+
+- **Prompt markers echoed.** The prompts carried `<<lang:…>>` / `<<text>>` markers meant for the fake
+  backend, and the model copied them into its replies: 684 of 720 hi payloads, 552 of 715 hi_latn, 666 of
+  715 mixed, 199 of 320 carrier texts, 196 of 320 adversarial-benign texts. No check looked for them.
+- **The keep-list was repeated** at the end of the text ("… 4,999, refund.desk@okaxis."): 150 hi, 276
+  hi_latn, 259 mixed payloads.
+- **"Code-mixed" text that is plain English.** 286 of 715 mixed payloads fall below the new Hindi-word
+  share cutoff (0.06; English texts of the same run score at most 0.031), and so do 77 carrier texts and
+  84 adversarial-benign texts, nearly all of them mixed.
+- **IndicTrans2 drafts were made (720) but not used.** The hi payloads came from an earlier LLM-only
+  session's cache, which was keyed by seed id only.
+- With the markers stripped, the new checks would still reject 163 of 720 hi, 323 of 715 hi_latn and
+  459 of 715 mixed payloads, so stripping cannot rescue the run. It is regenerated instead.
+
+Fixes (`corpus/guardset/generate.py`): prompts are a system turn plus a user turn holding only the
+text, with no markup. New checks: prompt echo, repeated tokens, Hindi-word share (hi_latn 0.10,
+mixed 0.06), Devanagari in English, JSON carriers must parse. A whole-output code fence is
+unwrapped and recorded. A cached row counts only for an identical prompt. Rejection reasons now go
+into `generate_report.json`. Benign topics doubled (80 ordinary, 40 adversarial-benign seeds), which
+gives 320 benign texts per language.
+
+---
+
+## 2026-11-24 — v2 Phase 3 step 2: the four baselines on the frozen test set
+
+Laptop CPU (project venv, `OMP_NUM_THREADS=2`, one language per process). Spend: **Rs 0**.
+`python -m scripts.guard_eval --set v2 --reuse-from pilot --langs <lang> --defenses <d>` for
+`protectai_deberta`, `translit+protectai_deberta`, `promptguard2` (86M) and `promptguard2_22m`
+(`meta-llama/Llama-Prompt-Guard-2-22M`, gated, free). The v1 items were reused from the pilot score
+files where text, sha and model matched (so English needed no new scoring; 300 new items per
+non-English language), and 22M was scored from scratch (en 125 s, hi 240 s, hi_latn 117 s, mixed 98 s).
+Then `python -m analysis.guard_tables --set v2 --defenses promptguard2 promptguard2_22m
+protectai_deberta translit+protectai_deberta --targets 0.02 0.01 0.05 --compare`. Score files:
+`analysis/out/guard_eval/v2/{lang}__{defense}.json`; table: `analysis/out/guard_eval/v2/tables.json`.
+
+Thresholds are fitted per language on the **calibration half**; everything below is the **test half**
+(91 English, 118–119 non-English headline attacks = `v1_embedded` + `native_embedded`, over 21 goals;
+151–181 benign). TPR 95% CIs are a bootstrap over attacker goals.
+
+**Detection at 2% FPR, calibrated** (the G3 operating point):
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| PromptGuard 2 86M | 0% (0/91) | 1% [0-3] (1/119) | **24% [9-40]** (28/118) | 0% (0/118) |
+| PromptGuard 2 22M | 0% (0/91) | **18% [5-33]** (21/119) | 16% [2-34] (19/118) | 0% (0/118) |
+| ProtectAI | 0% | 0% | 0% | 0% |
+| ProtectAI, transliterate first | 0% | 0% | 0% | 0% |
+| AUC, 86M / 22M | 0.94 / 0.82 | 0.95 / 0.95 | 0.96 / 0.93 | 0.92 / 0.91 |
+
+Test-half FPR at these thresholds stays at 0–2 of 61–91 in each benign group. The English threshold
+used unchanged in other languages ("shipped") detects 0–1% everywhere. At 1% FPR the picture is the
+same (86M hi_latn 19%, 22M hi 15%, hi_latn 10%, the rest 0%).
+
+**At the default threshold 0.5** (no calibration; TPR, then FPR ordinary / adversarial-benign):
+
+| | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| PromptGuard 2 86M | 36% (1/90, 7/61) | 8% (0/90, 1/85) | 7% (1/90, 0/91) | 9% (0/90, 3/90) |
+| PromptGuard 2 22M | 5% (1/90, 18/61) | 8% (0/90, 0/85) | 7% (0/90, 0/91) | 15% (1/90, 5/90) |
+| ProtectAI | 29% (2/90, 27/61) | 64% (47/90, 65/85) | 43% (7/90, 49/91) | 62% (6/90, 60/90) |
+
+ProtectAI's default "detections" off-English come with 7–52% FPR on ordinary text and 54–76% on
+adversarial-benign text: it flags Hindi, not attacks (as in v1).
+
+- **v1's numbers hold on v1's items.** At 5% FPR, PromptGuard 2 86M detects 46/91 (hi) and 72/91
+  (hi_latn) of the `v1_embedded` attacks, which are v1's 51% and 79% (10-15 entry) case for case.
+- **2% instead of 5% is what costs the most.** With 2% of 169–175 calibration negatives (3 false
+  positives allowed), a few high-scoring benign texts lift the threshold: Hindi 86M goes from 0.017 at
+  5% to 0.983 at 2%, and its `v1_embedded` detection from 46/91 to 0/91.
+- **The native attacks are nearly invisible to every baseline.** PromptGuard 2 catches 0–3 of the
+  27–28 `native_embedded` attacks per language even at 5% FPR, while the English template around a
+  Hindi goal (`enframe_embedded`, a separate variant) is caught 42/91 (hi) and 89/91 (hi_latn) at 2%.
+  The baselines detect the English template, not the injection.
+- **22M beats 86M in Hindi** (paired difference 86M − 22M at 2% FPR: −17 pts [−33, −3]) and loses in
+  hi_latn (+8 [−3, +21] at 2%, +8 [+2, +16] at 1%, +40 [+25, +54] at 5%); in en and mixed both are 0
+  at 1% and 2%. So "calibrated PromptGuard 2" for Gate G3
+  is best read as the better of the two in each language (hi 22M 18%, hi_latn 86M 24%, mixed 0%).
+  That reading is a decision for Sameer, recorded in docs/v2-plan.md when made.
+- **Code-mixed is the hardest language:** 0% for every baseline at 1% and 2% FPR, at most 4% at 5%.
+- v1 never scored 22M, so step 1 has nothing to reproduce for it; these are its first numbers.
+- The table now also shows each classifier at its default 0.5 threshold (`analysis/guard_tables.py`,
+  with a test), which Phase 3 step 2 asks for.
+
+**Phase 3 status.** Steps 1 and 2 are done. Steps 3–5 (training, ablations, selection) need the
+training set, which waits on a clean generation run and the G2 sample review. Not scored: the
+`craftloop-ai/hinglish-prompt-guard` baseline (open G0 decision). **Tests:** 398 passed, 2 skipped.
+
+---
+
+## 2026-11-27 — v2 Phase 2: second generation run kept; code-mixed comes back as English half the time
+
+`notebooks/guardset_colab.ipynb` on a Colab T4 at commit `7bda2bc`, Qwen2.5-14B-Instruct-AWQ (revision
+`53953585…`) with IndicTrans2 `indictrans2-en-indic-dist-200M` drafts for Hindi. Spend: **Rs 0**. The run
+took two sessions: the free GPU quota ran out during the adversarial-benign stage (26 Nov), and the
+rerun resumed from the Drive cache (27 Nov). Archive `guardset_drafts.tgz` (sha256 `1777c667…`), kept
+locally, not committed. Counts from its `work/generate_report.json`:
+
+| stage | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| payloads kept / rejected | - | 704 / 16 | 632 / 72 | **384 / 320** |
+| carrier texts kept / rejected | 160 / 0 | 160 / 0 | 156 / 4 | 94 / 66 |
+| adversarial-benign kept / rejected | 160 / 0 | 160 / 0 | 160 / 0 | 87 / 73 |
+| items: injection / benign | 1075 / 320 | 1056 / 320 | 960 / 316 | 578 / 181 |
+
+- **The 11-22 bugs are gone:** no prompt markers in any output, no repeated keep-lists, no code fences.
+  Hindi rejects are lost tokens (15) and one repeat; hi_latn rejects are Devanagari (54) and too little
+  Hindi (38).
+- **Code-mixed:** 315 of the 320 rejected payloads, and nearly all rejected mixed benign texts, are
+  "too little Hindi": their Hindi-word share is 0 (plain English), and 79 are the English source
+  copied unchanged. The texts that pass look like the test set's code-mixed text: Hindi-word share
+  quartiles 0.25 / 0.31 / 0.35, against 0.25 / 0.30 / 0.35 on the test set's calibration half
+  (hi_latn: 0.28 / 0.33 / 0.37 against 0.27 / 0.33 / 0.37). So the cutoff is not too strict; the
+  prompt was too weak.
+- **Build (superseded):** `python -m corpus.guardset.build` on these drafts: 4,806 items, 149 near-
+  duplicates removed, 0 dropped by the leakage audit. The goal-and-family split put **1 of the 16
+  template families** in validation (a random draw at 20% per key), so validation held 35 attack items
+  (3 in mixed) and 778 items were dropped as cross items. Not usable for picking the epoch.
+- The build first crashed on `seed_en.jsonl`, which the notebook writes into the drafts folder; the
+  build now reads only `generated_*.jsonl` (with a test).
+
+**Changes** (Sameer's decisions, docs/v2-plan.md Phase 2):
+- **Split:** validation holds out exactly 4 of the 16 template families and 25% of the benign topic
+  groups; goals may appear on both sides (option A). Measured on these drafts before deciding: A gives
+  2,666 / 1,003 / 0 attack items (train / validation / dropped), holding out 30 goals as well gives
+  1,973 / 237 / 1,459.
+- **Code-mixed rerun:** a firmer code-mixed instruction (Hindi grammar, English only for some nouns, an
+  example, "never return the English original") and `--keep-passed`, which keeps every row that
+  passed and resends only the rejects. A dry run on a copy of this cache sends exactly the 459
+  rejected mixed rows (320 payloads, 66 carrier texts, 73 adversarial-benign) and nothing else.
+- **Notebook:** fetches the newest code of the branch even on a runtime that has an old copy, stops if
+  the code is too old, and saves to Drive every 10 minutes during a stage.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->

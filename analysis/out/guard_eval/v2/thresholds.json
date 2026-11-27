@@ -1,0 +1,42 @@
+{
+ "protectai_deberta": {
+  "target_fpr": 0.02,
+  "by_lang": {
+   "en": 1.0,
+   "hi": 0.999999,
+   "hi_latn": 0.999996,
+   "mixed": 1.0
+  },
+  "english": 1.0
+ },
+ "translit+protectai_deberta": {
+  "target_fpr": 0.02,
+  "by_lang": {
+   "en": 1.0,
+   "hi": 0.999994,
+   "hi_latn": 0.999996,
+   "mixed": 1.0
+  },
+  "english": 1.0
+ },
+ "promptguard2": {
+  "target_fpr": 0.02,
+  "by_lang": {
+   "en": 0.99887,
+   "hi": 0.983123,
+   "hi_latn": 0.045196,
+   "mixed": 0.998366
+  },
+  "english": 0.99887
+ },
+ "promptguard2_22m": {
+  "target_fpr": 0.02,
+  "by_lang": {
+   "en": 0.997802,
+   "hi": 0.003589,
+   "hi_latn": 0.028759,
+   "mixed": 0.998204
+  },
+  "english": 0.997802
+ }
+}

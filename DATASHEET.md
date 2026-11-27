@@ -97,6 +97,39 @@ Hand-written English items were written for this corpus (2026-10-04) and are
 `source: hand-written/<category>`. Their translations follow the same draft and
 review path as everything else (`corpus/benign_extra/`, `corpus/benign_extend.py`).
 
+## v2 frozen test set (`corpus/testset/v2/`, frozen 2026-11-19)
+
+The test set every v2 claim is measured on (docs/v2-plan.md, Phase 1). Built by
+`python -m corpus.testset build`; SHA-256 of each file pinned in
+`tests/test_testset_hash.py`, so any change fails CI. Never trained on.
+
+| Language | Items | v1 attacks (embedded / payload) | enframe | native (embedded / payload) | v1 benign | native benign |
+|---|---|---|---|---|---|---|
+| `en` | 485 | 150 / 35 | – | – | 300 | – |
+| `hi` | 785 | 150 / 35 | 150 | 50 / 50 | 300 | 50 |
+| `hi_latn` | 785 | 150 / 35 | 150 | 50 / 50 | 300 | 50 |
+| `mixed` | 785 | 150 / 35 | 150 | 50 / 50 | 300 | 50 |
+
+**Halves.** Positives are split by attacker goal, negatives by item id, with
+`analysis.calibrate.is_fit` (salt `calib-2026`), the same split as v1: 14 goals in
+the calibration half, 21 in the test half, none in both. Thresholds are fitted on
+the calibration half; reported numbers come from the test half. `manifest.json`
+lists counts per kind and half, every goal per half, and all 54 template families
+(Phase 2's training data may use none of them).
+
+**Verification.** Every row has `verified_by` (reviewer codes only, no names): the
+benign items of all four languages were reviewed by reviewer R1 (no edits); English
+AgentDojo items are marked `AgentDojo`.
+
+**Native items were drafted by an LLM, not hand-written.** The 300 native texts
+(50 attack templates + 50 adversarial-benign texts for each of `hi`, `hi_latn`,
+`mixed`) were drafted by `claude-opus-5-5` and checked by R1. Their rows say
+`source: native_draft/claude-opus-5-5`, and provenance records `machine+human`.
+The `hi_latn` and `mixed` sets largely parallel the `hi` scenarios, so they are not
+independent samples. Because the guard's training data is also LLM-generated, scores
+on these items may partly reflect shared generator style. Never describe them as a
+human-written test.
+
 ## Uses
 
 **Intended:** evaluating injection defenses for tool-using agents, per

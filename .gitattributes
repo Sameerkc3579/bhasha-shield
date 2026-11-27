@@ -1,0 +1,2 @@
+# The frozen v2 test set is hashed (tests/test_testset_hash.py): keep LF on every OS.
+corpus/testset/v2/* text eol=lf

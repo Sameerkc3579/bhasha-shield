@@ -1,0 +1,3 @@
+# Phase 3 candidate: multilingual DeBERTa v3 (the plan's fallback base). Licence: docs/licences.md.
+name: mdeberta
+base_model: microsoft/mdeberta-v3-base

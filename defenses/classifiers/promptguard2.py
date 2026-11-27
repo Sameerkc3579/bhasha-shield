@@ -21,3 +21,11 @@ class PromptGuard2(HFClassifier):
     name = "promptguard2"
     model_id = "meta-llama/Llama-Prompt-Guard-2-86M"
     positive_label = "LABEL_1"
+
+
+class PromptGuard2_22M(PromptGuard2):
+    """The 22M sibling (DeBERTa-xsmall): the plan's second PromptGuard 2 baseline (v2 Phase 3).
+    Same labels, same gate."""
+
+    name = "promptguard2_22m"
+    model_id = "meta-llama/Llama-Prompt-Guard-2-22M"
