@@ -1461,4 +1461,49 @@ training set, which waits on a clean generation run and the G2 sample review. No
 
 ---
 
+## 2026-11-27 — v2 Phase 2: second generation run kept; code-mixed comes back as English half the time
+
+`notebooks/guardset_colab.ipynb` on a Colab T4 at commit `7bda2bc`, Qwen2.5-14B-Instruct-AWQ (revision
+`53953585…`) with IndicTrans2 `indictrans2-en-indic-dist-200M` drafts for Hindi. Spend: **Rs 0**. The run
+took two sessions: the free GPU quota ran out during the adversarial-benign stage (26 Nov), and the
+rerun resumed from the Drive cache (27 Nov). Archive `guardset_drafts.tgz` (sha256 `1777c667…`), kept
+locally, not committed. Counts from its `work/generate_report.json`:
+
+| stage | en | hi | hi_latn | mixed |
+|---|---|---|---|---|
+| payloads kept / rejected | - | 704 / 16 | 632 / 72 | **384 / 320** |
+| carrier texts kept / rejected | 160 / 0 | 160 / 0 | 156 / 4 | 94 / 66 |
+| adversarial-benign kept / rejected | 160 / 0 | 160 / 0 | 160 / 0 | 87 / 73 |
+| items: injection / benign | 1075 / 320 | 1056 / 320 | 960 / 316 | 578 / 181 |
+
+- **The 11-22 bugs are gone:** no prompt markers in any output, no repeated keep-lists, no code fences.
+  Hindi rejects are lost tokens (15) and one repeat; hi_latn rejects are Devanagari (54) and too little
+  Hindi (38).
+- **Code-mixed:** 315 of the 320 rejected payloads, and nearly all rejected mixed benign texts, are
+  "too little Hindi": their Hindi-word share is 0 (plain English), and 79 are the English source
+  copied unchanged. The texts that pass look like the test set's code-mixed text: Hindi-word share
+  quartiles 0.25 / 0.31 / 0.35, against 0.25 / 0.30 / 0.35 on the test set's calibration half
+  (hi_latn: 0.28 / 0.33 / 0.37 against 0.27 / 0.33 / 0.37). So the cutoff is not too strict; the
+  prompt was too weak.
+- **Build (superseded):** `python -m corpus.guardset.build` on these drafts: 4,806 items, 149 near-
+  duplicates removed, 0 dropped by the leakage audit. The goal-and-family split put **1 of the 16
+  template families** in validation (a random draw at 20% per key), so validation held 35 attack items
+  (3 in mixed) and 778 items were dropped as cross items. Not usable for picking the epoch.
+- The build first crashed on `seed_en.jsonl`, which the notebook writes into the drafts folder; the
+  build now reads only `generated_*.jsonl` (with a test).
+
+**Changes** (Sameer's decisions, docs/v2-plan.md Phase 2):
+- **Split:** validation holds out exactly 4 of the 16 template families and 25% of the benign topic
+  groups; goals may appear on both sides (option A). Measured on these drafts before deciding: A gives
+  2,666 / 1,003 / 0 attack items (train / validation / dropped), holding out 30 goals as well gives
+  1,973 / 237 / 1,459.
+- **Code-mixed rerun:** a firmer code-mixed instruction (Hindi grammar, English only for some nouns, an
+  example, "never return the English original") and `--keep-passed`, which keeps every row that
+  passed and resends only the rejects. A dry run on a copy of this cache sends exactly the 459
+  rejected mixed rows (320 payloads, 66 carrier texts, 73 adversarial-benign) and nothing else.
+- **Notebook:** fetches the newest code of the branch even on a runtime that has an old copy, stops if
+  the code is too old, and saves to Drive every 10 minutes during a stage.
+
+---
+
 <!-- Next entry goes here. Date it. Include the bad weeks. -->
