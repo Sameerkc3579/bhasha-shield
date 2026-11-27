@@ -213,6 +213,8 @@ The goal is a large, varied, labelled training set that **shares nothing** with 
 8. Clean up:
     - MinHash dedup
     - group split into train/validation by goal and template family
+
+   **Change 2026-11-27 (Sameer's decision):** validation holds out **template families only** (exactly 4 of the 16, and 25% of the benign topic groups, chosen by a salted hash); attacker goals may appear on both sides. Holding out goals too (the rule above) would drop about 40% of the attack items, and a random draw per family had put only 1 of 16 families in validation. Validation picks the epoch; the separation that the reported numbers rest on is the test set's, which shares no goal or family with training.
     - **TF-IDF leakage audit** against the test set: drop anything too close and record how many were dropped
 9. Quality check: reviewers check a fixed-seed 5% sample per language. If more than 10% are wrong, fix the generator and regenerate.
 10. Start at about 2,000 items per language. Grow only while the learning curve (Phase 3) is still rising.

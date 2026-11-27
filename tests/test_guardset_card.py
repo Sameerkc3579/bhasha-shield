@@ -46,6 +46,7 @@ def test_card_numbers_come_from_the_report(built):
     assert f"| hi | {hi} |" in text
     assert f"{rep['leakage']['threshold']}" in text and "Sameer" not in text
     assert "not reviewed yet" in text      # no verdicts in this build
+    assert all(f"`{f}`" in text for f in rep["held_out_families"]) and rep["held_out_families"]
 
 
 def test_card_refuses_a_missing_build(tmp_path):

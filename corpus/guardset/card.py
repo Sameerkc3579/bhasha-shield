@@ -124,8 +124,9 @@ def render(*, out: Path = OUT, work: Path = WORK) -> str:
         f"5. **Assembly and augmentation:** payloads spliced into carriers or kept bare; augmented copies "
         f"(homoglyphs, zero-width characters, script mixing) at rate {rep['params']['augment_rate']}: {st['augmented']} items.",
         f"6. **Clean-up:** near-duplicate removal (threshold {rep['params']['dedup_threshold']}): {st['dedup_removed']} removed; "
-        f"train/validation split by goal, template family and benign group (validation share {rep['params']['val_frac']}), "
-        f"{st['split_dropped_cross']} items dropped for straddling both sides.",
+        f"train/validation split by template family and benign group: {round(rep['params']['val_frac'] * 100)}% of each "
+        f"go to validation (families {', '.join(f'`{f}`' for f in rep.get('held_out_families', [])) or 'none'}), so validation "
+        "measures unseen templates; attacker goals may appear on both sides. None of them is a test-set goal.",
         "",
         "## Separation from the test set",
         "",

@@ -50,7 +50,7 @@ def _counts(items: list[GuardItem]) -> dict[str, int]:
 
 
 def run(drafts: list[GuardItem], *, test_texts: dict[str, list[str]], exclusions: Exclusions,
-        val_frac: float = 0.2, dedup_threshold: float = dedup.THRESHOLD,
+        val_frac: float = 0.25, dedup_threshold: float = dedup.THRESHOLD,
         leak_threshold: float = leakage.THRESHOLD, augment_rate: float = 0.25,
         salt: str = split.SALT) -> tuple[split.Split, dict]:
     problems = exclusions.violations(drafts)
@@ -67,7 +67,8 @@ def run(drafts: list[GuardItem], *, test_texts: dict[str, list[str]], exclusions
     after = leakage.audit(s.train + s.validation, test_texts, threshold=leak_threshold)[1]["dropped"]
     report = {
         "params": {"val_frac": val_frac, "dedup_threshold": dedup_threshold, "leak_threshold": leak_threshold,
-                   "augment_rate": augment_rate, "salt": salt},
+                   "augment_rate": augment_rate, "salt": salt, "split_by": ["family", "group"]},
+        "held_out_families": [k.split(":", 1)[1] for k in s.held_out.get("family", [])],
         "stages": {"drafts": len(drafts), "dedup_removed": len(removed),
                    "split_dropped_cross": len(s.dropped), "augmented": len(aug_train) + len(aug_val),
                    "leakage_dropped": leak_train["dropped"] + leak_val["dropped"]},
@@ -104,7 +105,7 @@ def main() -> int:
     ap.add_argument("--drafts", type=Path, default=DRAFTS)
     ap.add_argument("--test", type=Path, default=FROZEN, help="frozen test set dir (manifest.json + {lang}.jsonl)")
     ap.add_argument("--out", type=Path, default=OUT)
-    ap.add_argument("--val-frac", type=float, default=0.2)
+    ap.add_argument("--val-frac", type=float, default=0.25)
     ap.add_argument("--augment-rate", type=float, default=0.25)
     ap.add_argument("--leak-threshold", type=float, default=leakage.THRESHOLD)
     args = ap.parse_args()

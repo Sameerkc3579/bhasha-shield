@@ -104,17 +104,35 @@ def test_a_native_test_family_blocks_its_base_name_in_any_language():
 
 # --------------------------------------------------------------------------- split
 
-def test_split_never_shares_a_goal_or_family_between_train_and_validation():
+def test_split_holds_out_template_families_and_benign_groups_and_drops_nothing():
+    # Decision of 2026-11-27 (docs/v2-plan.md, Phase 2): validation holds out template families;
+    # goals may appear on both sides (the frozen test set keeps its own goals out of training).
     s = split.group_split(grid(), val_frac=0.4, salt="t")
     tr, va = s.train, s.validation
-    assert tr and va
+    assert tr and va and not s.dropped
     pos = lambda xs: [x for x in xs if x.label == "injection"]  # noqa: E731
-    assert not {x.goal for x in pos(tr)} & {x.goal for x in pos(va)}
-    assert not {x.family for x in pos(tr)} & {x.family for x in pos(va)}
+    assert pos(va) and not {x.family for x in pos(tr)} & {x.family for x in pos(va)}
     assert not {x.group for x in tr if x.label == "benign"} & {x.group for x in va if x.label == "benign"}
-    # Cross items (train goal x validation family, or the reverse) are dropped and counted.
-    assert len(tr) + len(va) + len(s.dropped) == len(grid())
+    assert len(tr) + len(va) == len(grid())
+
+
+def test_split_by_goal_and_family_drops_the_cross_items():
+    s = split.group_split(grid(), val_frac=0.4, salt="t", by=("goal", "family", "group"))
+    pos = lambda xs: [x for x in xs if x.label == "injection"]  # noqa: E731
+    assert not {x.goal for x in pos(s.train)} & {x.goal for x in pos(s.validation)}
+    assert not {x.family for x in pos(s.train)} & {x.family for x in pos(s.validation)}
+    assert len(s.train) + len(s.validation) + len(s.dropped) == len(grid())
     assert all(x.label == "injection" for x in s.dropped)
+
+
+def test_split_takes_an_exact_share_of_each_key_kind():
+    # A threshold per key put 1 of 16 families in validation at 0.2 (2026-11-27 build): counts are exact now.
+    items = [GuardItem.new(text=f"attack {f} {g}", label="injection", lang="en", family=f"fam_{f:02d}",
+                           goal=f"guard/g_{g:03d}", carrier="email", source="template")
+             for f in range(16) for g in range(3)]
+    s = split.group_split(items, val_frac=0.25, salt="t")
+    assert len({x.family for x in s.validation}) == 4 and len({x.family for x in s.train}) == 12
+    assert split.held_out(items, 0.25, "t")["family"] == {f"family:{x.family}" for x in s.validation}
 
 
 def test_split_is_deterministic_and_salted():
