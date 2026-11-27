@@ -6,6 +6,7 @@ counted not kept, every stage resumes without resending, and the output feeds `b
 from __future__ import annotations
 
 import json
+import zlib
 from pathlib import Path
 
 import pytest
@@ -140,6 +141,42 @@ def test_a_changed_prompt_is_resent_not_served_from_the_cache(work):
     third = Counting()
     G.stage_payloads(third, drafts_hi=drafts)
     assert third.sent == 0
+
+
+def test_keep_passed_resends_only_the_rejected_rows_of_a_changed_prompt(work, monkeypatch):
+    # The 2026-11-27 code-mixed rerun: a firmer mixed prompt, keeping every mixed row that already passed.
+    class EnglishForSome(G.FakeBackend):
+        def __call__(self, prompts, *, temperature, seed):
+            outs = super().__call__(prompts, temperature=temperature, seed=seed)
+            # the same rows every attempt, so they stay rejected after the retries
+            return [p.system.split("for meaning only:\n", 1)[1] if p.lang == "mixed" and zlib.crc32(p.user.encode()) % 2
+                    else o for p, o in zip(prompts, outs)]
+
+    G.stage_payloads(EnglishForSome())
+    before = G._cache("payloads_mixed")
+    passed = {k for k, r in before.items() if not r["rejected"]}
+    assert passed and len(passed) < len(before)
+    monkeypatch.setitem(G.LANG_NAME, "mixed", G.LANG_NAME["mixed"] + " (firmer)")
+    monkeypatch.setattr(G, "KEEP_PASSED", True)
+    again = Counting()
+    G.stage_payloads(again)
+    assert again.sent == len(before) - len(passed)          # nothing else is resent, hi and hi_latn included
+    after = G._cache("payloads_mixed")
+    assert all(after[k] == before[k] for k in passed)
+    assert not any(r["rejected"] for r in after.values())
+
+
+def test_a_half_written_last_line_in_the_cache_is_skipped(work):
+    G.stage_bodies(G.FakeBackend(), adversarial=False)
+    p = G.WORK / "bodies.jsonl"
+    n = len(G._cache("bodies"))
+    p.write_text(p.read_text(encoding="utf-8") + '{"key": "cut off mid-wri', encoding="utf-8")
+    assert len(G._cache("bodies")) == n                     # a save copied the file while a row was written
+
+
+def test_the_code_mixed_prompt_asks_for_hindi_grammar_and_forbids_the_english_original():
+    p = G.prompt_localize("mixed", "Send Rs 500 to x@okaxis now.", "अभी x@okaxis पर Rs 500 भेजें।")
+    assert "grammar" in p.system and "English original" in G.LANG_NAME["mixed"]
 
 
 def test_rejected_outputs_are_kept_out_and_counted(work, monkeypatch):

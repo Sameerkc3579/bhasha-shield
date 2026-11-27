@@ -70,7 +70,13 @@ LANG_NAME = {"hi": "Hindi in Devanagari script",
              "hi_latn": "Hindi written in Roman (Latin) script, the way people type Hindi on WhatsApp "
                         "(for example 'aapka khata', 'kripya', 'turant'), with no Devanagari",
              "mixed": "casual Hindi-English code-mixed text (Hinglish) in Latin script, the way urban "
-                      "Indians text each other, with no Devanagari"}
+                      "Indians text each other, with no Devanagari. The grammar stays Hindi (verbs, pronouns and "
+                      "small words such as hai, ko, ke liye, karo, nahi, aap); English is used only for some nouns "
+                      "and technical words (account, email, password, payment, ticket), for example 'aapka account "
+                      "abhi verify karo, warna payment block ho jayega'. Every sentence has Hindi words in it; "
+                      "never return the English original"}
+# 2026-11-27: the first mixed wording got plain English back for about half the texts (315 of 704 payloads).
+KEEP_PASSED = False   # --keep-passed: a cached row that passed its checks is kept even if its prompt changed
 
 
 def tokens(text: str) -> list[str]:
@@ -311,7 +317,14 @@ def _cache(name: str) -> dict[str, dict]:
     p = WORK / f"{name}.jsonl"
     if not p.exists():
         return {}
-    return {r["key"]: r for r in (json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip())}
+    rows = {}
+    for line in p.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:   # a half-written last line: a save copied the file mid-write
+            continue
+        rows[r["key"]] = r
+    return rows
 
 
 def _append(name: str, rows: list[dict]) -> None:
@@ -325,9 +338,15 @@ def _run(name: str, requests: list[dict], backend: Backend, *, check: Callable[[
          temperature: float, batch: int = 64, retries: int = 2) -> dict[str, dict]:
     """Send every request not yet cached; keep outputs that pass `check`, retry the rest with a new
     seed; after the last retry a failing output is stored with its reasons (counted, never used).
-    A cached row counts only for the same prompt: a new draft or upstream text resends it."""
+    A cached row counts only for the same prompt: a new draft or upstream text resends it. With
+    KEEP_PASSED, a row that passed its checks is kept under a changed prompt; only rejects are resent."""
     done = _cache(name)
-    todo = [r for r in requests if done.get(r["key"], {}).get("prompt_sha") != _sha(r["prompt"])]
+
+    def cached(r: dict) -> bool:
+        row = done.get(r["key"])
+        return bool(row) and (row.get("prompt_sha") == _sha(r["prompt"]) or (KEEP_PASSED and not row["rejected"]))
+
+    todo = [r for r in requests if not cached(r)]
     for attempt in range(retries + 1):
         if not todo:
             break
@@ -455,7 +474,7 @@ def report(loc: dict, bodies: dict, adv: dict, items: dict[str, list[GuardItem]]
 
 
 def main(argv: list[str] | None = None) -> int:
-    global WORK
+    global WORK, KEEP_PASSED
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["payloads", "bodies", "advbenign", "assemble", "all"])
     ap.add_argument("--fake", action="store_true", help="no model: CI and laptop")
@@ -463,8 +482,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model", default="")
     ap.add_argument("--drafts-hi", type=Path, help="IndicTrans2 drafts: JSONL of {seed_id, text}")
     ap.add_argument("--work", type=Path, default=WORK)
+    ap.add_argument("--keep-passed", action="store_true",
+                    help="after a prompt change, keep rows that already passed; resend only the rejected ones")
     a = ap.parse_args(argv)
-    WORK = a.work
+    WORK, KEEP_PASSED = a.work, a.keep_passed
 
     backend: Backend = FakeBackend() if a.fake else OpenAIBackend(a.base_url, a.model)
     drafts = None
